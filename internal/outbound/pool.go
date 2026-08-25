@@ -174,7 +174,13 @@ func (t *poolRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.Body != nil && r.GetBody == nil {
 		return resp, err
 	}
-	for i := 0; i < len(t.pool.entries)+1; i++ {
+	t.pool.mu.Lock()
+	n := len(t.pool.entries) + 1
+	t.pool.mu.Unlock()
+	if n > 3 {
+		n = 3
+	}
+	for i := 0; i < n; i++ {
 		next := t.pool.pick()
 		if next == nil || next == t.entry {
 			break

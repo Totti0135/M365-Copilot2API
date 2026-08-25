@@ -83,7 +83,14 @@ func validUpstreamTone(tone string) bool {
 }
 
 func knownUpstreamTones() []string {
-	return []string{"Gpt_5_2_Chat", "Gpt_5_2_Reasoning", "Gpt_5_3_Chat", "Gpt_5_3_Reasoning", "Gpt_5_4_Chat", "Gpt_5_4_Reasoning", "Gpt_5_5_Chat", "Gpt_5_5_Reasoning", "Gpt_5_6_Reasoning", "Claude_Sonnet", "Claude_Sonnet_Reasoning"}
+	return []string{
+		"Magic", "Gpt_5_2_Auto", "Gpt_5_2_Chat", "Gpt_5_2_Reasoning",
+		"Gpt_5_3_Chat", "Gpt_5_3_Reasoning",
+		"Gpt_5_4_Chat", "Gpt_5_4_Reasoning",
+		"Gpt_5_5_Chat", "Gpt_5_5_Reasoning",
+		"Gpt_5_6_Reasoning",
+		"Claude_Sonnet", "Claude_Sonnet_Reasoning",
+	}
 }
 
 var (
@@ -126,7 +133,7 @@ func fetchUpstreamTones() []string {
 	if err != nil {
 		return nil
 	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	resp.Body.Close()
 	re := regexp.MustCompile(`main\.[a-f0-9]{8}\.js`)
 	m := re.FindString(string(body))
@@ -138,7 +145,7 @@ func fetchUpstreamTones() []string {
 	if err != nil {
 		return nil
 	}
-	bundle, _ := io.ReadAll(io.LimitReader(resp2.Body, 10<<20))
+	bundle, _ := io.ReadAll(io.LimitReader(resp2.Body, 4<<20))
 	resp2.Body.Close()
 	toneRe := regexp.MustCompile(`(?:Gpt_[0-9]_[0-9]_[A-Za-z_]+|Claude_[A-Za-z0-9_]+|Magic)`)
 	matches := toneRe.FindAllString(string(bundle), -1)

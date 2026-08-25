@@ -61,7 +61,20 @@ type runtimeSettings struct {
 	RedirectURI         string         `json:"redirectUri"`
 	Scope               string         `json:"scope"`
 	ModelMappings       []modelMapping `json:"modelMappings"`
-	ToolPlanningMode    string         `json:"toolPlanningMode"`
+	ToolPlanningMode       string         `json:"toolPlanningMode"`
+	RateLimitCooldownSeconds int          `json:"rateLimitCooldownSeconds"`
+	Scenario                string         `json:"scenario"`
+	MaxConversationMessages int            `json:"maxConversationMessages"`
+	LicenseType               string         `json:"licenseType"`
+	AccountConcurrencyLimit   int            `json:"accountConcurrencyLimit"`
+	EnableMemoryV2            bool           `json:"enableMemoryV2"`
+	EnableDeepWork            bool           `json:"enableDeepWork"`
+	EnableComputerUse         bool           `json:"enableComputerUse"`
+	EnableRealtimeVoice       bool           `json:"enableRealtimeVoice"`
+	EnableSystemPromptOverride bool          `json:"enableSystemPromptOverride"`
+	EnableDesignerImageGen4o  bool           `json:"enableDesignerImageGen4o"`
+	EnableCodeCanvas          bool           `json:"enableCodeCanvas"`
+	EnableSydneyReconnect     bool           `json:"enableSydneyReconnect"`
 }
 
 type settingsStore struct {
@@ -87,6 +100,19 @@ func defaultRuntimeSettings() runtimeSettings {
 		Authority: os.Getenv("M365_AUTHORITY"), RedirectURI: os.Getenv("M365_REDIRECT_URI"), Scope: os.Getenv("M365_SCOPE"),
 		ModelMappings:    append([]modelMapping(nil), defaultModelMappings...),
 		ToolPlanningMode: toolPlanningMode(os.Getenv("M365_TOOL_PLANNING_MODE")),
+		RateLimitCooldownSeconds: envInt("M365_RATE_LIMIT_COOLDOWN_SECONDS", 30),
+		Scenario:                 firstNonEmptySetting(os.Getenv("M365_SCENARIO"), "OfficeWebIncludedCopilot"),
+		MaxConversationMessages:  envInt("M365_MAX_CONVERSATION_MESSAGES", 600),
+		LicenseType:               firstNonEmptySetting(os.Getenv("M365_LICENSE_TYPE"), "Starter"),
+		AccountConcurrencyLimit:   envInt("M365_ACCOUNT_CONCURRENCY_LIMIT", 8),
+		EnableMemoryV2:            os.Getenv("M365_ENABLE_MEMORY_V2") == "true",
+		EnableDeepWork:            os.Getenv("M365_ENABLE_DEEP_WORK") == "true",
+		EnableComputerUse:         os.Getenv("M365_ENABLE_COMPUTER_USE") == "true",
+		EnableRealtimeVoice:       os.Getenv("M365_ENABLE_REALTIME_VOICE") == "true",
+		EnableSystemPromptOverride: os.Getenv("M365_ENABLE_SYSTEM_PROMPT_OVERRIDE") == "true",
+		EnableDesignerImageGen4o:  os.Getenv("M365_ENABLE_DESIGNER_IMAGE_GEN_4O") == "true",
+		EnableCodeCanvas:          os.Getenv("M365_ENABLE_CODE_CANVAS") == "true",
+		EnableSydneyReconnect:     os.Getenv("M365_ENABLE_SYDNEY_RECONNECT") == "true",
 	}
 }
 func settingsPath() string {
@@ -170,6 +196,26 @@ func validateSettings(v runtimeSettings) error {
 		if _, err := normalizeReasoningEffort(mapping.DefaultReasoningLevel); err != nil || strings.TrimSpace(mapping.DefaultReasoningLevel) == "" {
 			return fmt.Errorf("公开模型 %q 的默认推理级别无效", model)
 		}
+	}
+	if v.RateLimitCooldownSeconds < 5 || v.RateLimitCooldownSeconds > 3600 {
+		return fmt.Errorf("限流冷却时间必须为 5-3600 秒")
+	}
+	if v.MaxConversationMessages < 1 || v.MaxConversationMessages > 10000 {
+		return fmt.Errorf("对话消息上限必须为 1-10000")
+	}
+	validLicenses := map[string]bool{"Starter": true, "Premium": true, "Free": true, "BCAIS": true, "BCSWW": true, "BCWAF": true, "BCWBF": true}
+	if !validLicenses[v.LicenseType] {
+		return fmt.Errorf("licenseType 必须为 Starter、Premium、Free、BCAIS、BCSWW、BCWAF 或 BCWBF")
+	}
+	validScenarios := map[string]bool{"OfficeWebIncludedCopilot": true, "Bizchat": true, "CopilotConsumer": true, "Chathub": true}
+	if !validScenarios[v.Scenario] {
+		return fmt.Errorf("scenario 必须为 OfficeWebIncludedCopilot、Bizchat、CopilotConsumer 或 Chathub")
+	}
+	if v.AccountConcurrencyLimit < 1 || v.AccountConcurrencyLimit > 64 {
+		return fmt.Errorf("账号并发上限必须为 1-64")
+	}
+	if strings.TrimSpace(v.Scenario) == "" {
+		return fmt.Errorf("场景标识不能为空")
 	}
 	return nil
 }

@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,6 +49,12 @@ type inflightRefresh struct {
 	done chan struct{}
 	acc  AccountToken
 	err  error
+}
+
+func cryptoRandUint16() uint16 {
+	var b [2]byte
+	_, _ = rand.Read(b[:])
+	return binary.BigEndian.Uint16(b[:])
 }
 
 func CachePath() string {
@@ -179,7 +188,7 @@ func (s *Store) Upsert(tok TokenSet) (AccountToken, error) {
 		id = tok.Email
 	}
 	if id == "" {
-		id = "account-" + time.Now().Format("150405")
+		id = fmt.Sprintf("account-%s-%04x", time.Now().Format("150405"), cryptoRandUint16())
 	}
 	acc := AccountToken{
 		ID:           id,
@@ -349,13 +358,16 @@ func (s *Store) refreshInflight(acc AccountToken) (AccountToken, error) {
 	s.inflight[acc.ID] = f
 	s.mu.Unlock()
 
-	tok, err := Refresh(acc.RefreshToken)
+	endpoint := TokenEndpoint()
+	if acc.ClientID == DeviceClientID() {
+		endpoint = DeviceTokenEndpoint()
+	}
+	tok, err := Refresh(acc.RefreshToken, acc.ClientID, endpoint)
 	if err != nil {
-		acc.Status = "expired"
 		s.mu.Lock()
 		for i, a := range s.data.Accounts {
 			if a.ID == acc.ID {
-				s.data.Accounts[i] = acc
+				s.data.Accounts[i].Status = "expired"
 				_ = s.saveLocked()
 				break
 			}

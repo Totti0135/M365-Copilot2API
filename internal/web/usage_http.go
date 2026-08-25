@@ -8,7 +8,7 @@ import (
 
 func (s *Server) adminUsage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	days := 7
@@ -82,7 +82,7 @@ func (s *Server) adminUsageKey(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminUsageLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	limit := 50

@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"m365-copilot2api/internal/chathub"
 	"strings"
 
 	"github.com/google/uuid"
@@ -106,7 +107,7 @@ func toolChoiceAllows(choice any, name string) bool {
 // collided when the same tool+arguments was invoked again (duplicate tool call
 // id errors from clients), so uniqueness must not depend on call content.
 func callID(name, args string, index int) string {
-	return "call_" + uuid.NewString()
+	return "call_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
 func extractToolCalls(text string, tools []map[string]any, choice any) ([]detectedToolCall, bool) {
@@ -166,50 +167,17 @@ func validateToolResult(messages []oaiMsg, known map[string]bool) error {
 var toolRefusalPatterns = []string{
 	"tools are not available",
 	"tool is not available",
-	"cannot access the Windows path",
-	"only provides Linux",
-	"只提供 Linux 容器",
-	"工具未暴露",
-	"工具不可用",
-	"没有可调用的",
-	"无法继续操作",
-	"will not pretend",
-	"will not fake",
-	"cannot fake",
-	"would be fabricated",
-	"cannot fabricate",
-	"refuse to fabricate",
 	"not actually registered",
 	"not actually available",
-	"not exposed in this",
 	"not available in this session",
-	"cannot execute on this platform",
-	"没有 Windows 执行接口",
-	"回复通道没有",
-	"没有执行接口",
-	"不会虚构",
-	"不会!转入",
-	"不会转入",
-	"execution environment has changed",
-	"执行环境已经切换",
-	"无法访问上一会话",
-	"/mnt/data",
-	"current execution environment has changed",
-	"linux sandbox",
-	"linux container",
-	"running in a container",
-	"cannot modify source code",
-	"没有连接到",
-	"Windows 执行接口",
-	"I can run that for you",
-	"running in sandbox",
-	"executing in sandbox",
-	"code interpreter",
-	"python sandbox",
-	"sandbox environment",
+	"工具不可用",
+	"工具未暴露",
 }
 
 func isToolRefusal(text string) bool {
+	if len(text) >= 200 {
+		return false
+	}
 	low := strings.ToLower(text)
 	for _, p := range toolRefusalPatterns {
 		if strings.Contains(low, strings.ToLower(p)) {
@@ -219,24 +187,13 @@ func isToolRefusal(text string) bool {
 	return false
 }
 
-var contentPolicyPatterns = []string{
-	"很抱歉，我无法响应",
-	"我很抱歉，我无法响应",
-	"i'm sorry, i can't respond",
-	"i'm sorry, i cannot respond",
+func isContentPolicyBlock(text string) bool {
+	return chathub.IsContentPolicyBlock(text)
 }
 
-func isContentPolicyBlock(text string) bool {
-	if len(text) > 300 {
-		return false
-	}
-	low := strings.ToLower(text)
-	for _, p := range contentPolicyPatterns {
-		if strings.Contains(low, strings.ToLower(p)) {
-			return true
-		}
-	}
-	return false
+func isImageLimitNotice(text string) bool {
+	t := strings.ToLower(text)
+	return strings.Contains(t, "无法生成更多图像") || strings.Contains(t, "unable to generate more images")
 }
 var sandboxHallucinationPatterns = []string{
 	"I can run that for you",

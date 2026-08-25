@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"time"
 
@@ -111,11 +112,15 @@ func (s *Server) streamResponsesAdapter(w http.ResponseWriter, r *http.Request, 
 		}
 		if rawCalls, ok := delta["tool_calls"].([]any); ok {
 			for _, raw := range rawCalls {
-				tc, _ := raw.(map[string]any)
-				idx := 0
-				if v, ok := tc["index"].(float64); ok {
-					idx = int(v)
+				tc, ok := raw.(map[string]any)
+				if !ok {
+					continue
 				}
+				idxFloat, ok := tc["index"].(float64)
+				if !ok {
+					continue
+				}
+				idx := int(idxFloat)
 				st := calls[idx]
 				typ := "function"
 				if v, ok := tc["type"].(string); ok && v == "custom" {
@@ -179,7 +184,12 @@ func (s *Server) streamResponsesAdapter(w http.ResponseWriter, r *http.Request, 
 	}
 	output := []any{}
 	if len(calls) > 0 {
-		for i := 0; i < len(calls); i++ {
+		keys := make([]int, 0, len(calls))
+		for k := range calls {
+			keys = append(keys, k)
+		}
+		sort.Ints(keys)
+		for _, i := range keys {
 			st := calls[i]
 			if st == nil {
 				continue
@@ -251,9 +261,12 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 		writeResponsesError(w, 400, "invalid_request_error", "invalid_parameter", err.Error())
 		return
 	}
-	tenant := extractAPIKey(r)
+	// Namespace the Responses conversation pool by a full-key hash rather than
+	// the 8-char display prefix, so distinct keys that share a prefix can never
+	// read each other's previous_response_id history.
+	tenant := tenantFromRequest(r)
 	if tenant == "" {
-		tenant = "default"
+		tenant = extractAPIKey(r)
 	}
 	if body.PreviousResponseID != "" {
 		s.responseMu.Lock()

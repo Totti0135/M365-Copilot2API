@@ -99,8 +99,8 @@ func (c *accountConcurrency) Snapshot() map[string]any {
 	return map[string]any{"limit": c.limit, "inflight": inflight}
 }
 
-func (c *accountConcurrency) inflightCount(accountID string) int {
-	if c == nil {
+func (c *accountConcurrency) Inflight(accountID string) int {
+	if c == nil || accountID == "" {
 		return 0
 	}
 	c.mu.Lock()

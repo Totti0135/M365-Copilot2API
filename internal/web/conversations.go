@@ -10,7 +10,7 @@ import (
 
 func (s *Server) conversations(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	jsonOut(w, map[string]any{"conversations": s.sessions.list()})
@@ -18,27 +18,24 @@ func (s *Server) conversations(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteConversation(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	var body struct {
 		ID string `json:"id"`
 	}
 	if json.NewDecoder(r.Body).Decode(&body) != nil || body.ID == "" {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "invalid_json", "bad json")
 		return
 	}
 	s.conversationManager.Delete(body.ID)
-	if !s.sessions.delete(body.ID) {
-		http.Error(w, "conversation not found", http.StatusNotFound)
-		return
-	}
+	s.sessions.delete(body.ID)
 	jsonOut(w, map[string]string{"status": "deleted"})
 }
 
 func (s *Server) conversationCleanup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	var body struct {
@@ -59,20 +56,42 @@ func (s *Server) conversationCleanup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// publicSessionID returns the identifier a client uses to refer to a binding:
+// its own explicit X-M365-Session-Id when it set one, otherwise the internal
+// session id. The tenant hash and stored conversation history are never
+// exposed through the API.
+func publicSessionID(sess sessionBinding) string {
+	if sess.ExplicitID != "" {
+		return sess.ExplicitID
+	}
+	return sess.SessionID
+}
+
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	tenant := tenantFromRequest(r)
 	switch r.Method {
 	case http.MethodGet:
-		sessions := s.sessionResolver.ListSessions()
+		sessions := s.sessionResolver.ListSessionsForTenant(tenant)
+		data := make([]map[string]any, 0, len(sessions))
+		for _, sess := range sessions {
+			data = append(data, map[string]any{
+				"id":              publicSessionID(sess),
+				"conversation_id": sess.ConversationID,
+				"created":         sess.CreatedAt.Unix(),
+				"last_used":       sess.LastUsedAt.Unix(),
+				"messages":        len(sess.ContextHistory),
+			})
+		}
 		jsonOut(w, map[string]any{
 			"object": "list",
-			"data":   sessions,
+			"data":   data,
 		})
 	case http.MethodPost:
 		var body struct {
 			SessionID string `json:"session_id"`
 		}
 		json.NewDecoder(r.Body).Decode(&body)
-		sess, ok := s.sessionResolver.GetSession(body.SessionID)
+		sess, ok := s.sessionResolver.GetSession(tenant, body.SessionID)
 		if !ok {
 			jsonOut(w, map[string]any{
 				"object":     "session",
@@ -85,19 +104,19 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 		jsonOut(w, map[string]any{
 			"object":          "session",
-			"id":              sess.SessionID,
+			"id":              publicSessionID(sess),
 			"conversation_id": sess.ConversationID,
 			"created":         sess.CreatedAt.Unix(),
 			"status":          "active",
 		})
 	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 	}
 }
 
 func (s *Server) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	stats := cacheStats.GetStats()
@@ -110,7 +129,7 @@ func (s *Server) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCacheStatsReset(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	cacheStats.Reset()
@@ -119,7 +138,7 @@ func (s *Server) handleCacheStatsReset(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleM365Conversations(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	if m365CloudClient == nil && len(s.sessionResolver.ListSessions()) == 0 {
@@ -187,7 +206,7 @@ func (s *Server) handleM365Conversations(w http.ResponseWriter, r *http.Request)
 
 func (s *Server) handleM365ConversationDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	conversationID := strings.TrimSpace(r.URL.Query().Get("id"))
@@ -255,7 +274,7 @@ func conversationTimestamp(row map[string]any) int64 {
 
 func (s *Server) handleM365Delete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	if m365CloudClient == nil {
@@ -266,7 +285,7 @@ func (s *Server) handleM365Delete(w http.ResponseWriter, r *http.Request) {
 		ConversationID string `json:"conversation_id"`
 	}
 	if json.NewDecoder(r.Body).Decode(&body) != nil || body.ConversationID == "" {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "invalid_json", "bad json")
 		return
 	}
 	if err := m365CloudClient.DeleteConversation(body.ConversationID); err != nil {
@@ -279,7 +298,7 @@ func (s *Server) handleM365Delete(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleM365Cleanup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	if m365CloudClient == nil {
@@ -311,18 +330,18 @@ func (s *Server) handleM365Cleanup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSessionDelete(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	sessionID := strings.TrimPrefix(r.URL.Path, "/v1/sessions/")
 	if sessionID == "" {
-		http.Error(w, "session_id required", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "invalid_parameter", "session_id required")
 		return
 	}
-	if s.sessionResolver.DeleteSession(sessionID) {
+	if s.sessionResolver.DeleteSession(tenantFromRequest(r), sessionID) {
 		jsonOut(w, map[string]any{"status": "deleted", "session_id": sessionID})
 	} else {
-		http.Error(w, "session not found", http.StatusNotFound)
+		writeOpenAIError(w, http.StatusNotFound, "not_found", "resource_not_found", "session not found")
 	}
 }
 
@@ -333,12 +352,12 @@ type conversationWhitelistRequest struct {
 
 func (s *Server) conversationWhitelist(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	var body conversationWhitelistRequest
 	if json.NewDecoder(r.Body).Decode(&body) != nil || body.ConversationID == "" {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "invalid_json", "bad json")
 		return
 	}
 	if body.Add {

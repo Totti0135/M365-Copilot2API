@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -13,18 +14,18 @@ import (
 
 func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method_not_allowed", "method not allowed")
 		return
 	}
 	var body chatBody
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	if json.NewDecoder(r.Body).Decode(&body) != nil {
-		http.Error(w, "bad json", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "bad_json", "bad json")
 		return
 	}
 	text := strings.TrimSpace(firstNonEmpty(body.Message, body.Prompt))
 	if text == "" {
-		http.Error(w, "message required", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "message_required", "message required")
 		return
 	}
 	if body.SessionKey != "" {
@@ -45,31 +46,55 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if acc.OID == "" || acc.TID == "" {
-		http.Error(w, "account missing oid/tid", http.StatusBadRequest)
+		writeOpenAIError(w, http.StatusBadRequest, "account_error", "account_missing_oid_tid", "account missing oid/tid")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(s.settings.get().ChatTimeoutSeconds)*time.Second)
 	defer cancel()
+	streamSettings := s.settings.get()
 	res, err := s.chatWithAccount(ctx, acc.ID, chathub.Account{AccessToken: acc.AccessToken, OID: acc.OID, TID: acc.TID}, chathub.Request{
 		Text: text, Tone: body.Tone, ConversationID: body.ConversationID, SessionID: body.SessionID, Attachments: body.Attachments,
+		LicenseType: streamSettings.LicenseType, Scenario: streamSettings.Scenario,
+		ConversationSignature: body.ConversationSignature, PreviousMessages: body.PreviousMessages, ConnectedFederatedIDs: body.ConnectedFederatedIDs,
+		FeatureFlags: s.featureFlags(),
 	})
 	if err != nil {
-		http.Error(w, upstreamError(err), http.StatusBadGateway)
+		if errors.Is(err, chathub.ErrImageLimit) && s.accountPool != nil {
+			s.accountPool.MarkImageLimited(acc.ID)
+		}
+		s.accountPool.MarkFailure(acc.ID, err, s.getRateLimitCooldown())
+		writeUpstreamError(w, err)
 		return
+	}
+	s.accountPool.MarkSuccess(acc.ID)
+	if res.Throttling != nil && s.accountPool != nil {
+		s.accountPool.UpdateThrottling(acc.ID, res.Throttling)
+		s.logThrottlingWarning(acc.ID, res.Throttling)
 	}
 	if body.SessionKey != "" {
 		s.sessions.upsert(conversation{ID: body.SessionKey, AccountID: acc.ID, ConversationID: res.ConversationID, SessionID: res.SessionID, Title: text})
 	}
 	res.Text = sanitizePublicAssistantText(res.Text)
+	res.Text, _ = chathub.StripCitationMarkers(res.Text, res.References)
 	res.Reasoning = sanitizePublicReasoningText(res.Reasoning)
 
+	if res.Throttling != nil {
+		if b, err := json.Marshal(res.Throttling); err == nil {
+			w.Header().Set("X-M365-Throttling", string(b))
+		}
+	}
+	if len(res.Scores) > 0 {
+		if b, err := json.Marshal(res.Scores); err == nil {
+			w.Header().Set("X-M365-Scores", string(b))
+		}
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "stream unsupported", http.StatusInternalServerError)
+		writeOpenAIError(w, http.StatusInternalServerError, "server_error", "stream_unsupported", "stream unsupported")
 		return
 	}
 	for i, event := range res.Normalized {
@@ -93,7 +118,11 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 	if err := writeSSE(r, w, flusher, "done", map[string]any{
 		"type": "done", "text": res.Text,
 		"conversationId": res.ConversationID, "sessionId": res.SessionID, "requestId": res.RequestID,
-		"throttling": res.Throttling,
+		"throttling": res.Throttling, "suggestedResponses": res.SuggestedResponses,
+		"offense": res.Offense, "scores": res.Scores, "conversationTransferToken": res.ConversationTransferToken,
+		"meteringInformation": res.MeteringInformation, "spokenText": res.SpokenText,
+		"storageMessageId": res.StorageMessageID,
+		"timestamps": res.Timestamps,
 	}); err != nil {
 		return
 	}

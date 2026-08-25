@@ -485,4 +485,8 @@ PRs Welcome！提交前请留意：
 
 ## 许可证
 
-[MIT License](LICENSE)。
+[AGPL-3.0 with Non-Commercial API Relay Restriction](LICENSE)。
+
+**本项目禁止作为付费 API 中继服务使用。** 请勿将本项目用于任何形式的商业 API 转售、付费代理、按量计费服务等。如果你有大量生产级需求，请直接订阅 [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) —— 那才是正途。
+
+这条限制纯粹是为了项目存活。一旦出现商业转售，极易引来法律风险导致项目被下架。我不想看到这个项目 GG，希望大家理解并遵守。
