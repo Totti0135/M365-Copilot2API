@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -168,8 +167,6 @@ func (r *sessionRegistry) getSession(id string) *session {
 
 // HandleSSE handles MCP SSE connections. Mount at /v1/mcp/sse.
 func HandleSSE(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[mcp-sse] === HANDLER ENTERED === from %s %s", r.Method, r.RemoteAddr)
-	fmt.Fprintf(os.Stderr, "[mcp-sse] HANDLER ENTERED\n")
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		log.Printf("[mcp-sse] streaming unsupported (no Flusher)")
