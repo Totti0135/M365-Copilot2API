@@ -88,6 +88,10 @@ func (s *apiKeyStore) create(name string) (apiKeyRecord, string, error) {
 		r.Raw = ""
 		return r, raw, nil
 	}
+// list 返回全部 key 的拷贝供管理端使用。Hash 恒置空（管理端不需要）；
+// Raw 有意保留——控制台的 raw-key 复制功能需要明文。安全边界：该结果仅经
+// adminMiddleware 保护的管理端点暴露，不进入公开 API、不写日志；若未来引入
+// 多管理员，需重新评估明文下发范围。
 func (s *apiKeyStore) list() []apiKeyRecord {
 	s.mu.Lock()
 	defer s.mu.Unlock()

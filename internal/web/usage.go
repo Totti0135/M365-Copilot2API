@@ -160,7 +160,9 @@ func (s *usageLog) snapshot(days int) map[string]any {
 
 // keySnapshot 返回单个 key 的用量明细。锁内只筛选拷贝该 key 的记录子集（避免全量
 // 拷贝 50k 记录的分配开销），聚合在锁外进行。升级前无 ID 的旧记录按 8 字符前缀归入
-// 该 key（与 resolveName 的回退口径一致；JWT eyJ 前缀不会误匹配）。
+// 该 key（与 resolveName 的回退口径一致；JWT eyJ 前缀不会误匹配）。key 前缀不足
+// 8 字符（仅手工导入等非标准路径可能出现）时按全前缀回溯，长度校验同样收紧，
+// 不会误吞更长前缀 key 的旧记录。
 func (s *usageLog) keySnapshot(days int, keyID, keyPrefix string) map[string]any {
 	if keyID == "" {
 		return newUsageAgg(days).result()
@@ -168,6 +170,8 @@ func (s *usageLog) keySnapshot(days int, keyID, keyPrefix string) map[string]any
 	var legacyBase string
 	if len(keyPrefix) >= 8 {
 		legacyBase = keyPrefix[:8]
+	} else if keyPrefix != "" {
+		legacyBase = keyPrefix
 	}
 	s.mu.Lock()
 	var recs []UsageRecord
@@ -177,7 +181,7 @@ func (s *usageLog) keySnapshot(days int, keyID, keyPrefix string) map[string]any
 			continue
 		}
 		if rec.APIKeyID == "" && legacyBase != "" &&
-			len(rec.APIKeyPrefix) == 11 && strings.HasSuffix(rec.APIKeyPrefix, "...") &&
+			len(rec.APIKeyPrefix) == len(legacyBase)+3 && strings.HasSuffix(rec.APIKeyPrefix, "...") &&
 			strings.HasPrefix(rec.APIKeyPrefix, legacyBase) {
 			recs = append(recs, rec)
 		}

@@ -91,4 +91,14 @@ func TestUsageKeySnapshotFiltersByIDAndLegacyPrefix(t *testing.T) {
 	if summaryB["requests"] != int64(1) {
 		t.Fatalf("key-b summary=%v, want requests=1", summaryB)
 	}
+
+	// 短前缀 key（< 8 字符，手工导入路径）：按全前缀回溯旧记录，
+	// 且不得误吞更长前缀（"abcdef..."）的旧记录。
+	log.record(UsageRecord{Time: now, APIKeyPrefix: "abc...", Model: "gpt-4o", InputTokens: 2})
+	log.record(UsageRecord{Time: now, APIKeyPrefix: "abcdef...", Model: "gpt-4o", InputTokens: 100})
+	statsS := log.keySnapshot(7, "key-s", "abc")
+	summaryS, _ := statsS["summary"].(map[string]any)
+	if summaryS["requests"] != int64(1) || summaryS["tokens"] != int64(2) {
+		t.Fatalf("key-s summary=%v, want requests=1 tokens=2", summaryS)
+	}
 }

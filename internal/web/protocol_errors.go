@@ -32,7 +32,10 @@ func writeOpenAIError(w http.ResponseWriter, status int, typ, code, msg string) 
 func writeResponsesError(w http.ResponseWriter, status int, typ, code, msg string) {
 	writeOpenAIError(w, status, typ, code, msg)
 }
-func writeAnthropicError(w http.ResponseWriter, status int, typ, code, msg string) {
+// writeAnthropicError emits an Anthropic-format error envelope. The Anthropic
+// schema has no error-code field, so unlike writeOpenAIError there is no code
+// parameter.
+func writeAnthropicError(w http.ResponseWriter, status int, typ, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"type": "error", "error": map[string]any{"type": typ, "message": sanitizePublicInternalText(msg)}})

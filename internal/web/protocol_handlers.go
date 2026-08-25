@@ -354,6 +354,9 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 						oldestTenant = t
 						oldestTime = h.At
 					}
+					// Deliberate: sample only the first entry per tenant bucket as
+					// its timestamp representative (approximate LRU) instead of
+					// scanning every message, keeping eviction O(tenants).
 					break
 				}
 			}
@@ -405,27 +408,27 @@ func responsesOutputHasContent(src map[string]any) bool {
 func (s *Server) anthropicMessages(w http.ResponseWriter, r *http.Request) {
 	startedAt := time.Now()
 	if r.Method != http.MethodPost {
-		writeAnthropicError(w, 405, "invalid_request_error", "method_not_allowed", "method not allowed")
+		writeAnthropicError(w, 405, "invalid_request_error", "method not allowed")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
 	var body anthropicRequest
 	if json.NewDecoder(r.Body).Decode(&body) != nil {
-		writeAnthropicError(w, 400, "invalid_request_error", "invalid_json", "bad json")
+		writeAnthropicError(w, 400, "invalid_request_error", "bad json")
 		return
 	}
 	o, err := body.openAI()
 	if err != nil {
-		writeAnthropicError(w, 400, "invalid_request_error", "invalid_parameter", err.Error())
+		writeAnthropicError(w, 400, "invalid_request_error", err.Error())
 		return
 	}
 	out, raw, status, err := s.runOpenAIAdapter(r, o)
 	if status >= 400 {
-		writeAnthropicError(w, status, "api_error", "bad_gateway", errorMessage(raw, "upstream protocol error"))
+		writeAnthropicError(w, status, "api_error", errorMessage(raw, "upstream protocol error"))
 		return
 	}
 	if err != nil {
-		writeAnthropicError(w, http.StatusBadGateway, "api_error", "bad_gateway", "upstream protocol error: "+err.Error())
+		writeAnthropicError(w, http.StatusBadGateway, "api_error", "upstream protocol error: "+err.Error())
 		return
 	}
 	estimate := estimateResponsesUsage(firstNonEmpty(body.Model, "m365-copilot"), o.Messages, o.Tools, o.ToolChoice, "")

@@ -9,7 +9,7 @@ import (
 
 func TestAnthropicErrorEnvelope(t *testing.T) {
 	rr := httptest.NewRecorder()
-	writeAnthropicError(rr, 400, "invalid_request_error", "invalid_json", "bad json")
+	writeAnthropicError(rr, 400, "invalid_request_error", "bad json")
 	var v map[string]any
 	if json.Unmarshal(rr.Body.Bytes(), &v) != nil || v["type"] != "error" {
 		t.Fatalf("body=%s", rr.Body.String())
