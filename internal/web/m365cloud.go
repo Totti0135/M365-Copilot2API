@@ -23,6 +23,8 @@ type M365CloudClient struct {
 	expiresAt    time.Time
 	httpClient   *http.Client
 	onRefresh    func(newRefreshToken string)
+	// chatEndpoint overrides the /chat dispatcher URL (tests only; empty = production).
+	chatEndpoint string
 }
 
 func NewM365CloudClient(clientID, tenantID, refreshToken string) *M365CloudClient {
@@ -120,7 +122,11 @@ func (c *M365CloudClient) doAPI(action string, payload map[string]any) (map[stri
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://m365.cloud.microsoft/chat", io.NopCloser(stringReader(string(jsonBody))))
+	endpoint := c.chatEndpoint
+	if endpoint == "" {
+		endpoint = "https://m365.cloud.microsoft/chat"
+	}
+	req, err := http.NewRequest("POST", endpoint, io.NopCloser(stringReader(string(jsonBody))))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -172,35 +178,86 @@ func (c *M365CloudClient) doAPI(action string, payload map[string]any) (map[stri
 
 func (c *M365CloudClient) DeleteConversation(conversationID string) error {
 	log.Printf("[m365-cloud] deleting conversation %s", conversationID)
+	// doAPI 把 payload 包进 "state"；此前这里多包了一层 "state" 键，
+	// 线上实际发出 state.state.conversationPageHistoryList（错误深度）。
 	_, err := c.doAPI("DeleteConversation", map[string]any{
 		"conversationId": conversationID,
-		"state": map[string]any{
-			"conversationPageHistoryList": map[string]any{
-				"chats": []any{},
-			},
+		"conversationPageHistoryList": map[string]any{
+			"chats": []any{},
 		},
 	})
 	return err
 }
 
 func (c *M365CloudClient) ListConversations() ([]map[string]any, error) {
-	result, err := c.doAPI("RefreshNavPane", map[string]any{})
+	// 2026-08 起微软把侧边栏历史列表从 RefreshNavPane 的 store 里挪走了（那里只剩
+	// 导航开关），浏览器改为通过 GetConversationPageHistoryList 拉取。该 action 的
+	// state 必须带 conversationPageHistoryList，否则 dispatcher 报
+	// "Cannot read properties of undefined (reading 'agentList')"（实测）。
+	result, err := c.doAPI("GetConversationPageHistoryList", map[string]any{
+		// doAPI 会把整个 payload 包进 "state"，这里就是 state 的内容
+		"conversationPageHistoryList": map[string]any{
+			"chats": []any{},
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	store, ok := result["store"].(map[string]any)
+	historyList, ok := historyListFromStore(result)
 	if !ok {
-		log.Printf("[m365-cloud] unexpected response: %v", result)
-		return nil, fmt.Errorf("unexpected response format")
-	}
-
-	historyList, ok := store["conversationPageHistoryList"].(map[string]any)
-	if !ok {
-		log.Printf("[m365-cloud] conversationPageHistoryList missing from store, returning empty list. store keys: %v", func() []string { keys := make([]string, 0); for k := range store { keys = append(keys, k) }; return keys }())
+		// 兜底：若新 action 的 store 又不含历史列表，退回旧的 RefreshNavPane 形态。
+		if legacy, lerr := c.listViaRefreshNavPane(); lerr == nil {
+			return legacy, nil
+		} else {
+			log.Printf("[m365-cloud] RefreshNavPane fallback failed: %v", lerr)
+		}
+		log.Printf("[m365-cloud] conversationPageHistoryList missing from store, returning empty list. store keys: %v", storeKeys(result))
 		return []map[string]any{}, nil
 	}
 
+	return parseChatList(historyList)
+}
+
+// listViaRefreshNavPane 是 2026-08 之前的列表来源，保留作协议回退。
+func (c *M365CloudClient) listViaRefreshNavPane() ([]map[string]any, error) {
+	result, err := c.doAPI("RefreshNavPane", map[string]any{})
+	if err != nil {
+		return nil, err
+	}
+	store, ok := result["store"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("unexpected response format")
+	}
+	historyList, ok := store["conversationPageHistoryList"].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("no conversationPageHistoryList")
+	}
+	return parseChatList(historyList)
+}
+
+// historyListFromStore 从 /chat dispatcher 响应中取 conversationPageHistoryList。
+func historyListFromStore(result map[string]any) (map[string]any, bool) {
+	store, ok := result["store"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	historyList, ok := store["conversationPageHistoryList"].(map[string]any)
+	return historyList, ok
+}
+
+func storeKeys(result map[string]any) []string {
+	keys := make([]string, 0)
+	if store, ok := result["store"].(map[string]any); ok {
+		for k := range store {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
+// parseChatList 兼容两种条目形态：内嵌 JSON 字符串与直接对象。
+func parseChatList(historyList map[string]any) ([]map[string]any, error) {
 	chatsRaw, ok := historyList["chats"].([]any)
 	if !ok {
 		log.Printf("[m365-cloud] chats type: %T, value: %v", historyList["chats"], historyList["chats"])
