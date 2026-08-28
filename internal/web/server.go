@@ -112,11 +112,11 @@ func (s *Server) confirmRateLimitNotice(ctx context.Context, acc auth.AccountTok
 		OID:         acc.OID,
 		TID:         acc.TID,
 	}, chathub.Request{
-		Text:        rateLimitProbePrompt,
-		Tone:        "magic",
-		Started:     true,
-		LicenseType: probeSettings.LicenseType,
-		Scenario:    probeSettings.Scenario,
+		Text:         rateLimitProbePrompt,
+		Tone:         "magic",
+		Started:      true,
+		LicenseType:  probeSettings.LicenseType,
+		Scenario:     probeSettings.Scenario,
 		FeatureFlags: s.featureFlags(),
 	})
 	if probeErr == nil {
@@ -175,11 +175,11 @@ func (s *Server) clientForProxy(proxyURL string) *chathub.Client {
 		return s.chat
 	}
 	c := &chathub.Client{
-		HTTPHeader:  make(http.Header),
-		HTTPClient:  clients.HTTP,
-		Dialer:      clients.WebSocket,
-		Pool:        chathub.NewConnPool(clients.WebSocket, make(http.Header)),
-		Trace:       s.chat.Trace,
+		HTTPHeader: make(http.Header),
+		HTTPClient: clients.HTTP,
+		Dialer:     clients.WebSocket,
+		Pool:       chathub.NewConnPool(clients.WebSocket, make(http.Header)),
+		Trace:      s.chat.Trace,
 	}
 	c.HTTPHeader.Set("Origin", "https://m365.cloud.microsoft")
 	c.HTTPHeader.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) Gecko/20100101 Firefox/148.0")
@@ -580,6 +580,7 @@ func (s *Server) adminKeys(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, 405, "invalid_request_error", "method_not_allowed", "method not allowed")
 	}
 }
+
 // rawAPIKey returns the full API key presented by the caller (X-API-Key or
 // Authorization: Bearer), or "" when none is present. Unlike extractAPIKey it
 // does not truncate: callers that use the key as a tenant/isolation identity
@@ -680,10 +681,10 @@ func (s *Server) accounts(w http.ResponseWriter, r *http.Request) {
 		out = append(out, view{
 			ID: a.ID, Email: a.Email, DisplayName: a.DisplayName,
 			Status: status, ScheduleEnabled: !a.ScheduleDisabled, CallCount: callCount, RateLimited: rateLimited,
-			ImageLimited: imageLimited,
-			AuthFailed: s.accountPool != nil && !s.accountPool.Available(a.ID) && authFailReason != "",
+			ImageLimited:   imageLimited,
+			AuthFailed:     s.accountPool != nil && !s.accountPool.Available(a.ID) && authFailReason != "",
 			AuthFailReason: authFailReason,
-			CooldownUntil: cooldownUntil, Throttling: throttling, Concurrency: concurrency,
+			CooldownUntil:  cooldownUntil, Throttling: throttling, Concurrency: concurrency,
 			OID: a.OID, TID: a.TID,
 			ExpiresAt: a.ExpiresAt, UpdatedAt: a.UpdatedAt, BoundProxy: a.BoundProxy,
 		})
@@ -1027,19 +1028,34 @@ func (s *Server) callbackPKCE(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// accountStrategySticky 报告是否启用上游 f80828f 的粘性 failover（粘住上次健康
+// 账号、仅失败时轮换）。默认关闭：该模式会让整个账号池的流量集中在第一个
+// 账号上（16 账号池实测 27/27 全命中 totti01），合并前的默认行为是轮询分摊。
+// M365_ACCOUNT_STRATEGY=sticky|failover 打开。
+func accountStrategySticky() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("M365_ACCOUNT_STRATEGY"))) {
+	case "sticky", "failover":
+		return true
+	}
+	return false
+}
+
 func (s *Server) resolveAccount(accountID string) (auth.AccountToken, error) {
 	if accountID == "" {
-		// Failover mode: prefer the last healthy account, only rotate on failure
-		s.mu.Lock()
-		preferred := s.lastHealthyAccount
-		s.mu.Unlock()
-		if preferred != "" && s.accountAvailable(preferred) && s.accountPool.Available(preferred) && s.accountConcurrency.Available(preferred) {
-			if acc, err := s.tokens.EnsureValid(preferred); err == nil {
-				accountID = preferred
-				return acc, nil
+		if accountStrategySticky() {
+			// Failover mode: prefer the last healthy account, only rotate on failure
+			s.mu.Lock()
+			preferred := s.lastHealthyAccount
+			s.mu.Unlock()
+			if preferred != "" && s.accountAvailable(preferred) && s.accountPool.Available(preferred) && s.accountConcurrency.Available(preferred) {
+				if acc, err := s.tokens.EnsureValid(preferred); err == nil {
+					accountID = preferred
+					return acc, nil
+				}
 			}
 		}
-		// No preferred account or it's unavailable; fall back to round-robin
+		// Round-robin across the pool (default); sticky mode also lands here when
+		// no preferred account is available.
 		acc, ok := s.tokens.Next()
 		if !ok {
 			return auth.AccountToken{}, fmt.Errorf("no accounts; login first")
@@ -1097,18 +1113,18 @@ func (s *Server) nextHealthyAccount(avoidID string) (auth.AccountToken, error) {
 }
 
 type chatBody struct {
-	AccountID            string               `json:"accountId"`
-	Message              string               `json:"message"`
-	Prompt               string               `json:"prompt"`
-	Tone                 string               `json:"tone"`
-	ConversationID       string               `json:"conversationId"`
-	SessionID            string               `json:"sessionId"`
-	SessionKey           string               `json:"sessionKey"`
-	ConversationSignature string              `json:"conversationSignature"`
-	Attachments          []chathub.Attachment `json:"attachments,omitempty"`
-	PreviousMessages     []chathub.ContextMessage `json:"previousMessages,omitempty"`
-	ConnectedFederatedIDs []string            `json:"connectedFederatedIds,omitempty"`
-	Tools                []chathub.Tool       `json:"tools,omitempty"`
+	AccountID             string                   `json:"accountId"`
+	Message               string                   `json:"message"`
+	Prompt                string                   `json:"prompt"`
+	Tone                  string                   `json:"tone"`
+	ConversationID        string                   `json:"conversationId"`
+	SessionID             string                   `json:"sessionId"`
+	SessionKey            string                   `json:"sessionKey"`
+	ConversationSignature string                   `json:"conversationSignature"`
+	Attachments           []chathub.Attachment     `json:"attachments,omitempty"`
+	PreviousMessages      []chathub.ContextMessage `json:"previousMessages,omitempty"`
+	ConnectedFederatedIDs []string                 `json:"connectedFederatedIds,omitempty"`
+	Tools                 []chathub.Tool           `json:"tools,omitempty"`
 	// Legacy OpenAI-compatible clients still send functions/function_call.
 	Functions       []json.RawMessage `json:"functions,omitempty"`
 	ToolChoice      any               `json:"tool_choice,omitempty"`
@@ -1300,24 +1316,24 @@ func (s *Server) chatOnce(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonOut(w, map[string]any{
-		"status":              "ok",
-		"text":                res.Text,
-		"conversationId":      res.ConversationID,
-		"sessionId":           res.SessionID,
-		"requestId":           res.RequestID,
-		"throttling":          res.Throttling,
-		"suggestedResponses":  res.SuggestedResponses,
-		"result":              res.RawResult,
-		"events":              res.Events,
-		"images":              res.Images,
-		"account":             map[string]any{"id": acc.ID, "email": acc.Email},
-		"offense":             res.Offense,
-		"scores":              res.Scores,
+		"status":                    "ok",
+		"text":                      res.Text,
+		"conversationId":            res.ConversationID,
+		"sessionId":                 res.SessionID,
+		"requestId":                 res.RequestID,
+		"throttling":                res.Throttling,
+		"suggestedResponses":        res.SuggestedResponses,
+		"result":                    res.RawResult,
+		"events":                    res.Events,
+		"images":                    res.Images,
+		"account":                   map[string]any{"id": acc.ID, "email": acc.Email},
+		"offense":                   res.Offense,
+		"scores":                    res.Scores,
 		"conversationTransferToken": res.ConversationTransferToken,
-		"meteringInformation": res.MeteringInformation,
-		"spokenText":          res.SpokenText,
-		"storageMessageId":   res.StorageMessageID,
-		"timestamps":         res.Timestamps,
+		"meteringInformation":       res.MeteringInformation,
+		"spokenText":                res.SpokenText,
+		"storageMessageId":          res.StorageMessageID,
+		"timestamps":                res.Timestamps,
 	})
 }
 
@@ -1386,7 +1402,7 @@ func (s *Server) adminModelTest(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	testCfg := s.settings.get()
 	res, err := s.chatWithAccount(ctx, acc.ID, chathub.Account{AccessToken: acc.AccessToken, OID: acc.OID, TID: acc.TID}, chathub.Request{
-		Text: `Say "OK" in one word.`,
+		Text:         `Say "OK" in one word.`,
 		Tone:         tone,
 		LicenseType:  testCfg.LicenseType,
 		Scenario:     testCfg.Scenario,
@@ -1425,39 +1441,39 @@ type oaiMsg struct {
 }
 
 type oaiReq struct {
-	Model               string          `json:"model"`
-	ResponseFormat      *responseFormat `json:"response_format,omitempty"`
-	Messages            []oaiMsg        `json:"messages"`
-	Stream              bool            `json:"stream"`
-	StreamOptions       *struct {
+	Model          string          `json:"model"`
+	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+	Messages       []oaiMsg        `json:"messages"`
+	Stream         bool            `json:"stream"`
+	StreamOptions  *struct {
 		IncludeUsage bool `json:"include_usage"`
 	} `json:"stream_options,omitempty"`
-	MaxTokens           *int              `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int              `json:"max_completion_tokens,omitempty"`
-	Temperature         *float64          `json:"temperature,omitempty"`
-	TopP                *float64          `json:"top_p,omitempty"`
-	FrequencyPenalty    *float64          `json:"frequency_penalty,omitempty"`
-	PresencePenalty     *float64          `json:"presence_penalty,omitempty"`
-	Stop                any               `json:"stop,omitempty"`
-	N                   *int              `json:"n,omitempty"`
-	Seed                *int64            `json:"seed,omitempty"`
-	Logprobs            *bool             `json:"logprobs,omitempty"`
-	TopLogprobs         *int              `json:"top_logprobs,omitempty"`
-	User                string            `json:"user"`
-	AccountID           string            `json:"accountId"`
-	ConversationID      string            `json:"conversation_id"`
-	SessionID           string            `json:"session_id"`
-	SessionKey          string            `json:"session_key"`
-	ConversationIDC     string            `json:"conversationId,omitempty"`
-	SessionIDC          string            `json:"sessionId,omitempty"`
+	MaxTokens           *int                 `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int                 `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64             `json:"temperature,omitempty"`
+	TopP                *float64             `json:"top_p,omitempty"`
+	FrequencyPenalty    *float64             `json:"frequency_penalty,omitempty"`
+	PresencePenalty     *float64             `json:"presence_penalty,omitempty"`
+	Stop                any                  `json:"stop,omitempty"`
+	N                   *int                 `json:"n,omitempty"`
+	Seed                *int64               `json:"seed,omitempty"`
+	Logprobs            *bool                `json:"logprobs,omitempty"`
+	TopLogprobs         *int                 `json:"top_logprobs,omitempty"`
+	User                string               `json:"user"`
+	AccountID           string               `json:"accountId"`
+	ConversationID      string               `json:"conversation_id"`
+	SessionID           string               `json:"session_id"`
+	SessionKey          string               `json:"session_key"`
+	ConversationIDC     string               `json:"conversationId,omitempty"`
+	SessionIDC          string               `json:"sessionId,omitempty"`
 	Attachments         []chathub.Attachment `json:"attachments,omitempty"`
 	Tools               []chathub.Tool       `json:"tools,omitempty"`
-	Functions           []json.RawMessage `json:"functions,omitempty"`
-	ToolChoice          any               `json:"tool_choice,omitempty"`
-	FunctionCall        any               `json:"function_call,omitempty"`
-	ParallelToolCalls   *bool             `json:"parallel_tool_calls,omitempty"`
-	Reasoning           *reasoningConfig  `json:"reasoning,omitempty"`
-	ReasoningEffort     string            `json:"reasoning_effort,omitempty"`
+	Functions           []json.RawMessage    `json:"functions,omitempty"`
+	ToolChoice          any                  `json:"tool_choice,omitempty"`
+	FunctionCall        any                  `json:"function_call,omitempty"`
+	ParallelToolCalls   *bool                `json:"parallel_tool_calls,omitempty"`
+	Reasoning           *reasoningConfig     `json:"reasoning,omitempty"`
+	ReasoningEffort     string               `json:"reasoning_effort,omitempty"`
 }
 
 func (r *oaiReq) shouldSendStreamUsage() bool {
@@ -2547,7 +2563,7 @@ APPLICATION_REQUEST_AND_EVIDENCE:
 		if routeErr == nil {
 			calls, parsed := parseModelToolDecision(routeRes.Text, toolMaps, body.ToolChoice)
 			if !parsed {
-			repairRes, repairErr := s.chatWithAccount(ctx, acc.ID, account, chathub.Request{Text: `Repair this tool routing output into JSON only with shape {"calls":[{"name":"function_name","arguments":{}}]}. Use {"calls":[]} if no tool is needed. OUTPUT:\n` + compactToolResult(routeRes.Text, 6000), Tone: tone, Attachments: body.Attachments, LicenseType: toolCfg.LicenseType, Scenario: toolCfg.Scenario})
+				repairRes, repairErr := s.chatWithAccount(ctx, acc.ID, account, chathub.Request{Text: `Repair this tool routing output into JSON only with shape {"calls":[{"name":"function_name","arguments":{}}]}. Use {"calls":[]} if no tool is needed. OUTPUT:\n` + compactToolResult(routeRes.Text, 6000), Tone: tone, Attachments: body.Attachments, LicenseType: toolCfg.LicenseType, Scenario: toolCfg.Scenario})
 				if repairErr == nil {
 					calls, parsed = parseModelToolDecision(repairRes.Text, toolMaps, body.ToolChoice)
 				}
@@ -2713,11 +2729,11 @@ func (s *Server) writePublicIdentityChatResponse(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			writeOpenAIError(w, http.StatusInternalServerError, "server_error", "stream_unsupported", "stream unsupported")
-			return
-		}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeOpenAIError(w, http.StatusInternalServerError, "server_error", "stream_unsupported", "stream unsupported")
+		return
+	}
 	chunk := map[string]any{
 		"id":      id,
 		"object":  "chat.completion.chunk",
