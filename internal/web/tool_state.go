@@ -13,7 +13,6 @@ func validateToolConversation(messages []oaiMsg) error {
 		}
 	}
 	pending := map[string]bool{}
-	completed := map[string]bool{}
 	for i, m := range messages {
 		switch m.Role {
 		case "assistant":
@@ -25,7 +24,7 @@ func validateToolConversation(messages []oaiMsg) error {
 				if id == "" {
 					return fmt.Errorf("assistant tool call missing id at index %d", i)
 				}
-				if pending[id] || completed[id] {
+				if pending[id] {
 					return fmt.Errorf("duplicate tool call id: %s", id)
 				}
 				pending[id] = true
@@ -38,7 +37,6 @@ func validateToolConversation(messages []oaiMsg) error {
 				return fmt.Errorf("unexpected tool result: %s", m.ToolCallID)
 			}
 			delete(pending, m.ToolCallID)
-			completed[m.ToolCallID] = true
 		}
 	}
 	if len(pending) > 0 {

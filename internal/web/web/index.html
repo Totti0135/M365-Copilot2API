@@ -283,15 +283,15 @@ body{background:var(--bg);color:var(--text);font-family:"Inter","SF Pro Display"
   <div style="width:min(400px,calc(100vw - 32px));animation:scaleIn .5s var(--ease-out)">
     <div style="text-align:center;margin-bottom:24px">
       <div class="logo" style="display:flex;align-items:center;gap:10px;justify-content:center;margin:0 auto 12px;padding:0"><div class="logo-mark" style="width:32px;height:32px"><span></span><span></span><span></span><span></span></div><span style="font-size:24px;font-weight:700;letter-spacing:-0.02em">M365 Copilot2API</span></div>
-      <p style="color:var(--muted);font-size:14px;margin-top:4px">Administrator Login</p>
+      <p style="color:var(--muted);font-size:14px;margin-top:4px">管理员登录</p>
     </div>
     <form id="loginForm" style="background:var(--surface);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);border:1px solid var(--surface-border);border-radius:var(--radius);padding:32px;box-shadow:var(--shadow-lg)">
       <div class="form-group">
-        <label class="form-label">Password</label>
+        <label class="form-label">密码</label>
         <input class="form-input" id="loginPassword" type="password" placeholder="请输入管理员密码（默认：admin123）" autofocus>
         <div class="form-hint" style="margin-top:4px">默认密码为 <code>admin123</code>，首次登录后需修改密码。</div>
       </div>
-      <button type="submit" class="btn primary" style="width:100%;margin-top:8px">Log in</button>
+      <button type="submit" class="btn primary" style="width:100%;margin-top:8px">登录</button>
     </form>
   </div>
 </div>
@@ -302,20 +302,20 @@ body{background:var(--bg);color:var(--text);font-family:"Inter","SF Pro Display"
     <div class="logo"><div class="logo-mark"><span></span><span></span><span></span><span></span></div><span>M365 Copilot2API</span></div>
     <div class="nav-label">Overview</div>
     <nav class="nav">
-      <button class="active" data-page="dashboard" onclick="showPage('dashboard')"><i data-lucide="layout-dashboard" style="width:16px;height:16px;flex-shrink:0"></i><span>Dashboard</span></button>
-      <button data-page="usage" onclick="showPage('usage')"><i data-lucide="chart-line" style="width:16px;height:16px;flex-shrink:0"></i><span>Usage</span></button>
+      <button data-page="dashboard" onclick="showPage('dashboard')" class="active"><i data-lucide="layout-dashboard" style="width:16px;height:16px;flex-shrink:0"></i><span>控制台</span></button>
+      <button data-page="usage" onclick="showPage('usage')"><i data-lucide="chart-line" style="width:16px;height:16px;flex-shrink:0"></i><span>用量</span></button>
     </nav>
     <div class="nav-label">Management</div>
     <nav class="nav">
-      <button data-page="accounts" onclick="showPage('accounts')"><i data-lucide="users" style="width:16px;height:16px;flex-shrink:0"></i><span>Accounts</span></button>
-      <button data-page="apikeys" onclick="showPage('apikeys')"><i data-lucide="key-round" style="width:16px;height:16px;flex-shrink:0"></i><span>API Keys</span></button>
-      <button data-page="conversations" onclick="showPage('conversations')"><i data-lucide="message-square" style="width:16px;height:16px;flex-shrink:0"></i><span>Conversations</span></button>
+      <button data-page="accounts" onclick="showPage('accounts')"><i data-lucide="users" style="width:16px;height:16px;flex-shrink:0"></i><span>账号</span></button>
+      <button data-page="apikeys" onclick="showPage('apikeys')"><i data-lucide="key-round" style="width:16px;height:16px;flex-shrink:0"></i><span>API 密钥</span></button>
+      <button data-page="conversations" onclick="showPage('conversations')"><i data-lucide="message-square" style="width:16px;height:16px;flex-shrink:0"></i><span>对话管理</span></button>
     </nav>
     <div class="nav-label">System</div>
     <nav class="nav">
-      <button data-page="proxies" onclick="showPage('proxies')"><i data-lucide="globe" style="width:16px;height:16px;flex-shrink:0"></i><span>Proxy Pool</span></button>
-      <button data-page="modeltest" onclick="showPage('modeltest')"><i data-lucide="flask-conical" style="width:16px;height:16px;flex-shrink:0"></i><span>Model Test</span></button>
-      <button data-page="settings" onclick="showPage('settings')"><i data-lucide="settings" style="width:16px;height:16px;flex-shrink:0"></i><span>Settings</span></button>
+      <button data-page="proxies" onclick="showPage('proxies')"><i data-lucide="globe" style="width:16px;height:16px;flex-shrink:0"></i><span>代理池</span></button>
+      <button data-page="modeltest" onclick="showPage('modeltest')"><i data-lucide="flask-conical" style="width:16px;height:16px;flex-shrink:0"></i><span>模型测试</span></button>
+      <button data-page="settings" onclick="showPage('settings')"><i data-lucide="settings" style="width:16px;height:16px;flex-shrink:0"></i><span>设置</span></button>
     </nav>
     <div class="sidebar-foot">v0.4.0</div>
   </aside>
@@ -416,7 +416,7 @@ if (response.output_text) {
           <div class="stat"><span class="stat-label">Tokens saved</span><span class="stat-value" id="stat-saved">0</span><span class="stat-unit" style="font-size:12px">saved</span></div>
         </div>
         <div class="card">
-          <div class="card-head"><span class="card-title">Quick actions</span></div>
+          <div class="card-head"><span class="card-title">快捷操作</span></div>
           <div class="card-body">
             <div class="quick-grid">
               <div class="quick-action" onclick="showPage('accounts');setTimeout(startPKCE,200)">
@@ -435,7 +435,7 @@ if (response.output_text) {
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><span class="card-title">Recent requests</span><button class="btn btn-sm" onclick="showPage('usage')">View all</button></div>
+          <div class="card-head"><span class="card-title">最近请求</span><button class="btn btn-sm" onclick="showPage('usage')">查看全部</button></div>
           <table class="table"><thead><tr><th>Time</th><th>Model</th><th>Endpoint</th><th>Tokens</th><th>Status</th></tr></thead><tbody id="dashRecentRows"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody></table>
         </div>
       </section>
@@ -491,6 +491,40 @@ if (response.output_text) {
         <div class="page-head">
           <div><h2 class="page-title">Account management</h2><p class="page-sub">Authorize and manage Microsoft accounts</p></div>
         </div>
+        <!-- Microsoft Graph batch user creation is temporarily disabled. Keep its implementation out of the loaded page until it is restored. -->
+        <template id="disabledGraphBatchUserCreation">
+        <div class="card" style="margin-bottom:16px;display:none" aria-hidden="true">
+          <div class="card-head"><span class="card-title">批量创建 Microsoft 365 用户</span><button class="btn btn-sm" type="button" onclick="checkGraphConfig()">检查准备状态</button></div>
+          <div class="card-body">
+            <div class="onb-steps" style="margin-bottom:16px">
+              <div class="onb-step"><span class="onb-step-num">1</span><span class="onb-step-text"><b>准备安全存储</b><p>用于安全保存管理员连接信息。</p></span></div>
+              <div class="onb-step"><span class="onb-step-num">2</span><span class="onb-step-text"><b>连接 Microsoft 管理员</b><p>使用有权创建用户的管理员账号完成连接。</p></span></div>
+              <div class="onb-step"><span class="onb-step-num">3</span><span class="onb-step-text"><b>创建账号</b><p>先创建测试账号，确认无误后再批量创建。</p></span></div>
+            </div>
+            <div id="graphConfigStatus" class="form-hint" style="margin-bottom:12px">正在检查管理员连接状态…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <button class="btn btn-sm primary" id="graphAuthorizeButton" type="button" onclick="startGraphAuthorization()">连接 Microsoft 管理员</button>
+              <button class="btn btn-sm" type="button" onclick="revokeGraphAuthorization()">断开本地连接</button>
+            </div>
+            <details id="graphDiagnostics" style="margin-bottom:16px"><summary>高级诊断</summary><pre id="graphDiagnosticText" style="white-space:pre-wrap;margin-top:8px"></pre></details>
+            <form onsubmit="createGraphUsers(event)">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                <div class="form-group"><label class="form-label">账号域名</label><input class="form-input" id="graphDomain" required placeholder="contoso.onmicrosoft.com"><div class="form-hint">填写 Microsoft 365 中已验证的域名，例如 contoso.onmicrosoft.com 或企业已验证域名。不能填写网站地址、https://、邮箱全址或随意编造的域名。</div></div>
+                <div class="form-group"><label class="form-label">账号前缀</label><input class="form-input" id="graphPrefix" required value="user"></div>
+                <div class="form-group"><label class="form-label">起始编号</label><input class="form-input" id="graphStart" type="number" min="0" required value="1"></div>
+                <div class="form-group"><label class="form-label">数量</label><input class="form-input" id="graphCount" type="number" min="1" max="20" required value="1"></div>
+                <div class="form-group"><label class="form-label">显示名</label><input class="form-input" id="graphDisplayName" required value="Microsoft 365 User"></div>
+                <div class="form-group"><label class="form-label">使用地区</label><input class="form-input" id="graphUsageLocation" required maxlength="2" value="US"><div class="form-hint">账号使用地区的两位代码，例如 US。</div></div>
+                <div class="form-group"><label class="form-label">许可证（可选）</label><div class="form-hint">留空表示只创建用户、不分配许可证。可分配 Microsoft 365 Copilot 等已购买许可证。</div><details style="margin-top:8px"><summary>高级：填写许可证内部编号</summary><input class="form-input" id="graphSkuId" placeholder="普通用户无需填写" style="margin-top:8px"><div class="form-hint">这是 Microsoft 许可证的内部编号，仅在已知准确编号时填写。</div></details></div>
+                <div class="form-group"><label class="form-label">初始密码</label><div style="display:flex;gap:8px"><input class="form-input" id="graphInitialPassword" type="password" minlength="8" required autocomplete="new-password"><button class="btn btn-sm" type="button" onclick="generateGraphPassword()">安全生成</button></div><div class="form-hint">这是新建子账号首次登录 Microsoft 365 使用的临时密码，不是管理员密码，也不是本系统登录密码。密码仅在当前输入框中安全展示，不会写入日志、网址或持久化文件。默认不要求首次登录修改；批量账号共用同一密码会增加泄露风险。</div></div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;margin:4px 0 12px"><input id="graphForcePasswordChange" type="checkbox"> 首次登录时强制修改密码</label>
+              <button class="btn primary" id="graphCreateButton" type="submit">批量创建</button>
+            </form>
+            <div id="graphBatchResults" style="margin-top:16px"></div>
+          </div>
+        </div>
+        </template>
         <div class="card" style="margin-bottom:16px">
           <div class="card-head"><span class="card-title">Add account</span></div>
           <div class="card-body">
@@ -603,9 +637,9 @@ if (response.output_text) {
 
       <!-- Model Test -->
       <section id="page-modeltest" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <div><h2 style="font-size:18px;font-weight:700">Model test</h2><p style="font-size:12px;color:var(--muted);margin-top:2px">Send a minimal request to each model to verify availability</p></div>
-          <button class="btn primary" onclick="modelTestAll()"><i data-lucide="play" style="width:14px;height:14px"></i> Test all</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+          <div><h2 style="font-size:18px;font-weight:700">Model test</h2><p style="font-size:12px;color:var(--muted);margin-top:2px">支持单账号测试，自动或指定账号</p></div>
+          <div style="display:flex;gap:8px;align-items:center"><select id="modelTestAccount" class="form-input" style="width:200px"><option value="">自动选择账号</option></select><button class="btn primary" onclick="modelTestAll()"><i data-lucide="play" style="width:14px;height:14px"></i> Test all</button></div>
         </div>
         <div class="card">
           <table class="table"><thead><tr><th>Model</th><th>Status</th><th>Latency</th><th>Reply</th></tr></thead><tbody id="modelTestRows"><tr><td colspan="4" class="empty">Loading...</td></tr></tbody></table>
@@ -651,6 +685,11 @@ if (response.output_text) {
     <div class="form-group">
       <label class="form-label">Name</label>
       <input class="form-input" id="editKeyName">
+    </div>
+    <div class="form-group">
+      <label class="form-label">绑定出口账号</label>
+      <div id="editKeyAccounts" style="display:grid;gap:8px;max-height:240px;overflow:auto"></div>
+      <div class="form-hint">可绑定一个或多个账号。未选择时，该密钥继续在全部健康且允许调度的账号之间负载均衡。</div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeEditKeyModal()">Cancel</button>
@@ -722,11 +761,12 @@ if (response.output_text) {
 
 <script>
 const $=id=>document.getElementById(id);
-const pages={dashboard:'Dashboard',usage:'Usage',accounts:'Accounts',apikeys:'API Keys',conversations:'Conversations',proxies:'Proxy Pool',modeltest:'Model Test',settings:'Settings'};
+const pages={dashboard:'控制台',usage:'用量',accounts:'账号',apikeys:'API 密钥',conversations:'对话管理',proxies:'代理池',modeltest:'模型测试',settings:'设置'};
 const localeStorageKey='m365_locale';
 const localeSelectionKey='m365_locale_selected';
 const SUPPORTED_LOCALES=['en','zh-CN','zh-TW','ja','ko','es','fr','de','pt-BR','ru','ar'];
 const localeText={
+  'm365_cloud_not_configured': {'zh-CN':'M365 云客户端未配置，请先通过 PKCE 授权添加一个 M365 账号。','zh-TW':'M365 雲客戶端未配置，請先通過 PKCE 授權新增一個 M365 帳號。','ja':'M365 クラウドクライアントが設定されていません。PKCE 認証で M365 アカウントを追加してください。','ko':'M365 클라우드 클라이언트가 구성되지 않았습니다. PKCE 인증으로 M365 계정을 추가하세요.','es':'Cliente en la nube de M365 no configurado. Agregue una cuenta M365 primero mediante autorización PKCE.','fr':'Client cloud M365 non configuré. Ajoutez d’abord un compte M365 via l’autorisation PKCE.','de':'M365-Cloud-Client nicht konfiguriert. Fügen Sie zuerst ein M365-Konto über PKCE-Autorisierung hinzu.','pt-BR':'Cliente cloud M365 não configurado. Adicione uma conta M365 primeiro via autorização PKCE.','ru':'Облачный клиент M365 не настроен. Сначала добавьте учетную запись M365 через авторизацию PKCE.','ar':'عميل سحابة M365 غير مهيأ. أضف حساب M365 أولاً عبر تفويض PKCE.'},
   'Administrator Login': {'zh-CN':'管理员登录','zh-TW':'管理員登入','ja':'管理者ログイン','ko':'관리자 로그인','es':'Inicio de sesión de administrador','fr':'Connexion administrateur','de':'Administrator-Anmeldung','pt-BR':'Login de administrador','ru':'Вход администратора','ar':'تسجيل دخول المسؤول'},
   'Password': {'zh-CN':'密码','zh-TW':'密碼','ja':'パスワード','ko':'비밀번호','es':'Contraseña','fr':'Mot de passe','de':'Passwort','pt-BR':'Senha','ru':'Пароль','ar':'كلمة المرور'},
   'Enter administrator password': {'zh-CN':'请输入管理员密码','zh-TW':'請輸入管理員密碼','ja':'管理者パスワードを入力してください','ko':'관리자 비밀번호를 입력하세요','es':'Introduzca la contraseña de administrador','fr':'Saisissez le mot de passe administrateur','de':'Administrator-Passwort eingeben','pt-BR':'Digite a senha do administrador','ru':'Введите пароль администратора','ar':'أدخل كلمة مرور المسؤول'},
@@ -737,7 +777,7 @@ const localeText={
   'Usage detail': {'zh-CN':'用量详情','zh-TW':'用量詳情','ja':'使用量の詳細','ko':'사용량 상세','es':'Detalle de uso','fr':'Détails de l\'utilisation','de':'Nutzungsdetails','pt-BR':'Detalhes de uso','ru':'Детали использования','ar':'تفاصيل الاستخدام'},
   'Management': {'zh-CN':'管理','zh-TW':'管理','ja':'管理','ko':'관리','es':'Gestión','fr':'Gestion','de':'Verwaltung','pt-BR':'Gerenciamento','ru':'Управление','ar':'الإدارة'},
   'Accounts': {'zh-CN':'账号','zh-TW':'帳號','ja':'アカウント','ko':'계정','es':'Cuentas','fr':'Comptes','de':'Konten','pt-BR':'Contas','ru':'Аккаунты','ar':'الحسابات'},
-  'API Keys': {'zh-CN':'API Keys','zh-TW':'API Keys','ja':'API キー','ko':'API 키','es':'Claves API','fr':'Clés API','de':'API-Schlüssel','pt-BR':'Chaves API','ru':'API-ключи','ar':'مفاتيح API'},
+  'API Keys': {'zh-CN':'API 密钥','zh-TW':'API 金鑰','ja':'API キー','ko':'API 키','es':'Claves API','fr':'Clés API','de':'API-Schlüssel','pt-BR':'Chaves API','ru':'API-ключи','ar':'مفاتيح API'},
   'Conversations': {'zh-CN':'对话管理','zh-TW':'對話管理','ja':'会話管理','ko':'대화 관리','es':'Conversaciones','fr':'Conversations','de':'Unterhaltungen','pt-BR':'Conversas','ru':'Разговоры','ar':'المحادثات'},
   'System': {'zh-CN':'系统','zh-TW':'系統','ja':'システム','ko':'시스템','es':'Sistema','fr':'Système','de':'System','pt-BR':'Sistema','ru':'Система','ar':'النظام'},
   'Proxy Pool': {'zh-CN':'代理池','zh-TW':'代理池','ja':'プロキシプール','ko':'프록시 풀','es':'Grupo de proxies','fr':'Pool de proxys','de':'Proxy-Pool','pt-BR':'Pool de proxies','ru':'Пул прокси','ar':'مجموعة البروكسي'},
@@ -751,7 +791,13 @@ const localeText={
   'Hide guide': {'zh-CN':'隐藏入门引导','zh-TW':'隱藏入門引導','ja':'ガイドを非表示','ko':'가이드 숨기기','es':'Ocultar guía','fr':'Masquer le guide','de':'Leitfaden ausblenden','pt-BR':'Ocultar guia','ru':'Скрыть руководство','ar':'إخفاء الدليل'},
   'Add an account': {'zh-CN':'添加账号','zh-TW':'新增帳號','ja':'アカウントを追加','ko':'계정 추가','es':'Añadir cuenta','fr':'Ajouter un compte','de':'Konto hinzufügen','pt-BR':'Adicionar conta','ru':'Добавить аккаунт','ar':'إضافة حساب'},
   'Authorize a Microsoft account and add it to the available pool': {'zh-CN':'授权 Microsoft 账号，加入可用账号池','zh-TW':'授權 Microsoft 帳號，加入可用帳號池','ja':'Microsoft アカウントを承認して利用可能プールに追加','ko':'Microsoft 계정을 인증하고 사용 가능한 풀에 추가','es':'Autorice una cuenta Microsoft y agréguela al grupo disponible','fr':'Autorisez un compte Microsoft et ajoutez-le au pool disponible','de':'Microsoft-Konto autorisieren und zum verfügbaren Pool hinzufügen','pt-BR':'Autorize uma conta Microsoft e adicione-a ao pool disponível','ru':'Авторизуйте учетную запись Microsoft и добавьте её в доступный пул','ar':'أذِن لحساب Microsoft وأضفه إلى المجموعة المتاحة'},
-  'Create an API key': {'zh-CN':'创建 API Key','zh-TW':'建立 API Key','ja':'API キーを作成','ko':'API 키 생성','es':'Crear clave API','fr':'Créer une clé API','de':'API-Schlüssel erstellen','pt-BR':'Criar chave API','ru':'Создать API-ключ','ar':'إنشاء مفتاح API'},
+  'Create an API key': {'zh-CN':'创建 API 密钥','zh-TW':'建立 API 金鑰','ja':'API キーを作成','ko':'API 키 생성','es':'Crear clave API','fr':'Créer une clé API','de':'API-Schlüssel erstellen','pt-BR':'Criar chave API','ru':'Создать API-ключ','ar':'إنشاء مفتاح API'},
+  'Add a Microsoft account': {'zh-CN':'添加 Microsoft 账号','zh-TW':'新增 Microsoft 帳號','ja':'Microsoft アカウントを追加','ko':'Microsoft 계정 추가','es':'Agregar una cuenta Microsoft','fr':'Ajouter un compte Microsoft','de':'Microsoft-Konto hinzufügen','pt-BR':'Adicionar uma conta Microsoft','ru':'Добавить аккаунт Microsoft','ar':'إضافة حساب Microsoft'},
+  'Sign in via browser OAuth and add the account to the pool': {'zh-CN':'通过浏览器 OAuth 登录并将账号加入账号池','zh-TW':'透過瀏覽器 OAuth 登入並將帳號加入帳號池','ja':'ブラウザの OAuth でサインインしてアカウントをプールに追加','ko':'브라우저 OAuth로 로그인하고 계정을 풀에 추가','es':'Inicia sesión mediante OAuth en el navegador y agrega la cuenta al grupo','fr':'Connectez-vous via OAuth dans le navigateur et ajoutez le compte au pool','de':'Über Browser-OAuth anmelden und Konto zum Pool hinzufügen','pt-BR':'Entre via OAuth no navegador e adicione a conta ao pool','ru':'Войдите через OAuth в браузере и добавьте аккаунт в пул','ar':'سجّل الدخول عبر OAuth في المتصفح وأضف الحساب إلى المجموعة'},
+  'Generate a key to authenticate API requests': {'zh-CN':'生成一个用于 API 请求认证的密钥','zh-TW':'產生一個用於 API 要求認證的金鑰','ja':'APIリクエスト認証用のキーを生成','ko':'API 요청 인증용 키 생성','es':'Generar una clave para autenticar solicitudes API','fr':'Générer une clé pour authentifier les requêtes API','de':'Schlüssel zur Authentifizierung von API-Anfragen generieren','pt-BR':'Gerar uma chave para autenticar solicitações de API','ru':'Сгенерировать ключ для аутентификации API-запросов','ar':'إنشاء مفتاح للمصادقة على طلبات API'},
+  'Add account': {'zh-CN':'添加账号','zh-TW':'新增帳號','ja':'アカウントを追加','ko':'계정 추가','es':'Agregar cuenta','fr':'Ajouter un compte','de':'Konto hinzufügen','pt-BR':'Adicionar conta','ru':'Добавить аккаунт','ar':'إضافة حساب'},
+  'Sign in via Microsoft OAuth': {'zh-CN':'通过 Microsoft OAuth 登录','zh-TW':'透過 Microsoft OAuth 登入','ja':'Microsoft OAuth でサインイン','ko':'Microsoft OAuth로 로그인','es':'Iniciar sesión con Microsoft OAuth','fr':'Connexion via Microsoft OAuth','de':'Anmeldung mit Microsoft OAuth','pt-BR':'Entrar com Microsoft OAuth','ru':'Войти через Microsoft OAuth','ar':'تسجيل الدخول عبر Microsoft OAuth'},
+  'Generate a key for API access': {'zh-CN':'生成 API 访问密钥','zh-TW':'產生 API 存取金鑰','ja':'API アクセス用のキーを生成','ko':'API 액세스용 키 생성','es':'Generar una clave para acceso a la API','fr':'Générer une clé pour l\'accès à l\'API','de':'Schlüssel für API-Zugriff generieren','pt-BR':'Gerar uma chave para acesso à API','ru':'Сгенерировать ключ для доступа к API','ar':'إنشاء مفتاح للوصول إلى API'},
   'Create an access key for this application or service': {'zh-CN':'为你的本应用或服务创建访问密钥','zh-TW':'為你的本應用程式或服務建立存取金鑰','ja':'このアプリケーションまたはサービスのアクセスキーを作成','ko':'이 앱 또는 서비스의 액세스 키 생성','es':'Cree una clave de acceso para esta aplicación o servicio','fr':'Créez une clé d\'accès pour cette application ou ce service','de':'Erstellen Sie einen Zugriffsschlüssel für diese Anwendung oder diesen Dienst','pt-BR':'Crie uma chave de acesso para este aplicativo ou serviço','ru':'Создайте ключ доступа для этого приложения или сервиса','ar':'أنشئ مفتاح وصول لهذا التطبيق أو الخدمة'},
   'Send a request': {'zh-CN':'发送请求','zh-TW':'傳送要求','ja':'リクエストを送信','ko':'요청 보내기','es':'Enviar solicitud','fr':'Envoyer une requête','de':'Anfrage senden','pt-BR':'Enviar solicitação','ru':'Отправить запрос','ar':'إرسال طلب'},
   'Verify the route with the curl example below': {'zh-CN':'用下方 curl 示例验证路由','zh-TW':'用下方 curl 範例驗證路由','ja':'以下の curl 例でルートを確認','ko':'아래 curl 예제로 경로 확인','es':'Verifique la ruta con el ejemplo curl de abajo','fr':'Vérifiez la route avec l\'exemple curl ci-dessous','de':'Route mit dem curl-Beispiel unten prüfen','pt-BR':'Verifique a rota com o exemplo curl abaixo','ru':'Проверьте маршрут с помощью примера curl ниже','ar':'تحقق من المسار بمثال curl أدناه'},
@@ -761,7 +807,7 @@ const localeText={
   'Gateway': {'zh-CN':'网关','zh-TW':'閘道','ja':'ゲートウェイ','ko':'게이트웨이','es':'Puerta de enlace','fr':'Passerelle','de':'Gateway','pt-BR':'Gateway','ru':'Шлюз','ar':'البوابة'},
   'Online': {'zh-CN':'在线','zh-TW':'線上','ja':'オンライン','ko':'온라인','es':'En línea','fr':'En ligne','de':'Online','pt-BR':'Online','ru':'В сети','ar':'متصل'},
   'Available accounts': {'zh-CN':'可用账号','zh-TW':'可用帳號','ja':'利用可能なアカウント','ko':'사용 가능한 계정','es':'Cuentas disponibles','fr':'Comptes disponibles','de':'Verfügbare Konten','pt-BR':'Contas disponíveis','ru':'Доступные аккаунты','ar':'الحسابات المتاحة'},
-  'API Key': {'zh-CN':'API Key','zh-TW':'API Key','ja':'API キー','ko':'API 키','es':'Clave API','fr':'Clé API','de':'API-Schlüssel','pt-BR':'Chave API','ru':'API-ключ','ar':'مفتاح API'},
+  'API Key': {'zh-CN':'API 密钥','zh-TW':'API 金鑰','ja':'API キー','ko':'API 키','es':'Clave API','fr':'Clé API','de':'API-Schlüssel','pt-BR':'Chave API','ru':'API-ключ','ar':'مفتاح API'},
   'Last 24 hours': {'zh-CN':'近 24 小时消耗','zh-TW':'近 24 小時消耗','ja':'過去24時間の消費','ko':'최근 24시간 사용','es':'Últimas 24 horas','fr':'Dernières 24 heures','de':'Letzte 24 Stunden','pt-BR':'Últimas 24 horas','ru':'Последние 24 часа','ar':'آخر 24 ساعة'},
   'All-time usage': {'zh-CN':'历史使用情况','zh-TW':'歷史使用情況','ja':'全期間の使用量','ko':'전체 사용량','es':'Uso histórico','fr':'Utilisation totale','de':'Gesamtnutzung','pt-BR':'Uso histórico','ru':'Использование за всё время','ar':'الاستخدام الكلي'},
   'Request count': {'zh-CN':'请求计数','zh-TW':'要求計數','ja':'リクエスト数','ko':'요청 수','es':'Número de solicitudes','fr':'Nombre de requêtes','de':'Anzahl der Anfragen','pt-BR':'Número de solicitações','ru':'Количество запросов','ar':'عدد الطلبات'},
@@ -804,7 +850,7 @@ const localeText={
   'Token usage by model': {'zh-CN':'按模型统计的 Token 用量','zh-TW':'按模型統計的 Token 用量','ja':'モデル別トークン使用量','ko':'모델별 토큰 사용량','es':'Uso de tokens por modelo','fr':'Utilisation de tokens par modèle','de':'Token-Nutzung nach Modell','pt-BR':'Uso de tokens por modelo','ru':'Использование токенов по моделям','ar':'استخدام الرموز حسب النموذج'},
   'Endpoint distribution': {'zh-CN':'端点分布','zh-TW':'端點分佈','ja':'エンドポイント分布','ko':'엔드포인트 분포','es':'Distribución de puntos finales','fr':'Répartition des points d\'entrée','de':'Endpunktverteilung','pt-BR':'Distribuição de endpoints','ru':'Распределение конечных точек','ar':'توزيع نقاط النهاية'},
   'Requests by endpoint': {'zh-CN':'按接口统计的请求量','zh-TW':'按介面統計的要求量','ja':'エンドポイント別リクエスト数','ko':'엔드포인트별 요청 수','es':'Solicitudes por punto final','fr':'Requêtes par point d\'entrée','de':'Anfragen nach Endpunkt','pt-BR':'Solicitações por endpoint','ru':'Запросы по конечным точкам','ar':'الطلبات حسب نقطة النهاية'},
-  'API key usage': {'zh-CN':'API Key 用量','zh-TW':'API Key 用量','ja':'API キー使用量','ko':'API 키 사용량','es':'Uso de claves API','fr':'Utilisation des clés API','de':'API-Schlüssel-Nutzung','pt-BR':'Uso de chaves API','ru':'Использование API-ключей','ar':'استخدام مفاتيح API'},
+  'API key usage': {'zh-CN':'API 密钥用量','zh-TW':'API 金鑰用量','ja':'API キー使用量','ko':'API 키 사용량','es':'Uso de claves API','fr':'Utilisation des clés API','de':'API-Schlüssel-Nutzung','pt-BR':'Uso de chaves API','ru':'Использование API-ключей','ar':'استخدام مفاتيح API'},
   'Requests by API key': {'zh-CN':'按密钥统计的请求量','zh-TW':'按金鑰統計的要求量','ja':'API キー別リクエスト数','ko':'API 키별 요청 수','es':'Solicitudes por clave API','fr':'Requêtes par clé API','de':'Anfragen nach API-Schlüssel','pt-BR':'Solicitações por chave API','ru':'Запросы по API-ключам','ar':'الطلبات حسب مفتاح API'},
   'Request details': {'zh-CN':'请求明细','zh-TW':'要求明細','ja':'リクエスト詳細','ko':'요청 상세','es':'Detalles de solicitud','fr':'Détails de la requête','de':'Anfragedetails','pt-BR':'Detalhes da solicitação','ru':'Детали запроса','ar':'تفاصيل الطلب'},
   'Recent records': {'zh-CN':'最近记录','zh-TW':'最近記錄','ja':'最近の記録','ko':'최근 기록','es':'Registros recientes','fr':'Enregistrements récents','de':'Letzte Einträge','pt-BR':'Registros recentes','ru':'Последние записи','ar':'السجلات الأخيرة'},
@@ -813,16 +859,20 @@ const localeText={
   'Previous': {'zh-CN':'上一页','zh-TW':'上一頁','ja':'前へ','ko':'이전','es':'Anterior','fr':'Précédent','de':'Zurück','pt-BR':'Anterior','ru':'Назад','ar':'السابق'},
   'Next': {'zh-CN':'下一页','zh-TW':'下一頁','ja':'次へ','ko':'다음','es':'Siguiente','fr':'Suivant','de':'Weiter','pt-BR':'Próximo','ru':'Далее','ar':'التالي'},
   'Account management': {'zh-CN':'账号管理','zh-TW':'帳號管理','ja':'アカウント管理','ko':'계정 관리','es':'Gestión de cuentas','fr':'Gestion des comptes','de':'Kontoverwaltung','pt-BR':'Gerenciamento de contas','ru':'Управление аккаунтами','ar':'إدارة الحسابات'},
+  'admin_login_locked': {'zh-CN':'登录失败次数过多，请稍后重试。','zh-TW':'登入失敗次數過多，請稍後重試。','ja':'ログイン失敗回数が多すぎます。しばらくしてから再度お試しください。','ko':'로그인 실패 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.','es':'Demasiados intentos fallidos de inicio de sesión. Inténtelo de nuevo más tarde.','fr':'Trop de tentatives de connexion échouées. Veuillez réessayer plus tard.','de':'Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuchen Sie es später erneut.','pt-BR':'Muitas tentativas de login falhas. Tente novamente mais tarde.','ru':'Слишком много неудачных попыток входа. Повторите попытку позже.','ar':'عدد كبير من محاولات تسجيل الدخول الفاشلة. حاول مرة أخرى لاحقاً.'},
+  'invalid_administrator_password': {'zh-CN':'管理员密码错误','zh-TW':'管理員密碼錯誤','ja':'管理者パスワードが正しくありません','ko':'관리자 비밀번호가 잘못되었습니다','es':'Contraseña de administrador no válida','fr':'Mot de passe administrateur invalide','de':'Ungültiges Administrator-Passwort','pt-BR':'Senha de administrador inválida','ru':'Неверный пароль администратора','ar':'كلمة مرور المسؤول غير صحيحة'},
+  'Account': {'zh-CN':'账号','zh-TW':'帳號','ja':'アカウント','ko':'계정','es':'Cuenta','fr':'Compte','de':'Konto','pt-BR':'Conta','ru':'Учётная запись','ar':'الحساب'},
+  'Proxy': {'zh-CN':'代理','zh-TW':'代理','ja':'プロキシ','ko':'프록시','es':'Proxy','fr':'Proxy','de':'Proxy','pt-BR':'Proxy','ru':'Прокси','ar':'الوكيل'},
   'Authorize and manage Microsoft accounts': {'zh-CN':'授权和管理 Microsoft 账号','zh-TW':'授權和管理 Microsoft 帳號','ja':'Microsoft アカウントの承認と管理','ko':'Microsoft 계정 인증 및 관리','es':'Autorizar y gestionar cuentas Microsoft','fr':'Autoriser et gérer les comptes Microsoft','de':'Microsoft-Konten autorisieren und verwalten','pt-BR':'Autorizar e gerenciar contas Microsoft','ru':'Авторизация и управление аккаунтами Microsoft','ar':'أذِن وإدارة حسابات Microsoft'},
-  'Click "Start authorization" below': {'zh-CN':'点击下方"开始授权"','zh-TW':'點擊下方「開始授權」','ja':'下の「承認を開始」をクリック','ko':'아래 "인증 시작" 클릭','es':'Haga clic en "Iniciar autorización" abajo','fr':'Cliquez sur « Démarrer l\'autorisation » ci-dessous','de':'Klicken Sie unten auf „Autorisierung starten"','pt-BR':'Clique em "Iniciar autorização" abaixo','ru':'Нажмите «Начать авторизацию» ниже','ar':'انقر "بدء التفويض" أدناه'},
+  'Click "Start authorization" below': {'zh-CN':'点击下方"开始授权"','zh-TW':'點擊下方「開始授權」','ja':'下の「承認を開始」をクリック','ko':'아래 "인증 시작" 클릭','es':'Haga clic en "Iniciar autorización" abajo','fr':'Cliquez sur « Démarrer l’autorisation » ci-dessous','de':'Klicken Sie unten auf „Autorisierung starten"','pt-BR':'Clique em "Iniciar autorização" abaixo','ru':'Нажмите «Начать авторизацию» ниже','ar':'انقر "بدء التفويض" أدناه'},
   'Your browser will open the Microsoft sign-in page': {'zh-CN':'浏览器将打开 Microsoft 登录页面','zh-TW':'瀏覽器將開啟 Microsoft 登入頁面','ja':'ブラウザで Microsoft サインインページが開きます','ko':'브라우저에서 Microsoft 로그인 페이지가 열립니다','es':'Su navegador abrirá la página de inicio de sesión de Microsoft','fr':'Votre navigateur ouvrira la page de connexion Microsoft','de':'Ihr Browser öffnet die Microsoft-Anmeldeseite','pt-BR':'Seu navegador abrirá a página de entrada da Microsoft','ru':'Браузер откроет страницу входа Microsoft','ar':'سيفتح متصفحك صفحة تسجيل دخول Microsoft'},
   'Copy the full callback URL': {'zh-CN':'复制完整回调地址','zh-TW':'複製完整回呼位址','ja':'完全なコールバック URL をコピー','ko':'전체 콜백 URL 복사','es':'Copiar la URL de devolución completa','fr':'Copier l\'URL de rappel complète','de':'Vollständige Callback-URL kopieren','pt-BR':'Copie a URL de retorno completa','ru':'Скопируйте полный URL обратного вызова','ar':'انسخ عنوان URL الكامل لإعادة التوجيه'},
   'After signing in, copy the full URL beginning with http from the address bar': {'zh-CN':'登录完成后，复制地址栏中以 http 开头的完整网址','zh-TW':'登入完成後，複製網址列中以 http 開頭的完整網址','ja':'サインイン後、アドレスバーから http で始まる完全な URL をコピー','ko':'로그인 후 주소창에서 http로 시작하는 전체 URL 복사','es':'Tras iniciar sesión, copie la URL completa que comienza con http desde la barra de direcciones','fr':'Après la connexion, copiez l\'URL complète commençant par http depuis la barre d\'adresse','de':'Kopieren Sie nach der Anmeldung die vollständige, mit http beginnende URL aus der Adressleiste','pt-BR':'Após entrar, copie a URL completa começando com http da barra de endereços','ru':'После входа скопируйте полный URL, начинающийся с http, из адресной строки','ar':'بعد تسجيل الدخول، انسخ عنوان URL الكامل الذي يبدأ بـ http من شريط العنوان'},
   'Paste and confirm': {'zh-CN':'粘贴并确认','zh-TW':'貼上並確認','ja':'貼り付けて確認','ko':'붙여넣고 확인','es':'Pegar y confirmar','fr':'Coller et confirmer','de':'Einfügen und bestätigen','pt-BR':'Colar e confirmar','ru':'Вставить и подтвердить','ar':'الصق وأكد'},
-  'Paste it below and click "Confirm and add" to finish authorization': {'zh-CN':'粘贴到下方输入框，点击"确认添加"完成授权','zh-TW':'貼到下方輸入框，點擊「確認新增」完成授權','ja':'下の入力欄に貼り付けて「確認して追加」をクリックし、承認を完了','ko':'아래 입력란에 붙여넣고 "확인 및 추가"를 클릭하여 인증 완료','es':'Péguela abajo y haga clic en "Confirmar y añadir" para finalizar la autorización','fr':'Collez-la ci-dessous et cliquez sur « Confirmer et ajouter » pour terminer l\'autorisation','de':'Fügen Sie sie unten ein und klicken Sie auf „Bestätigen und hinzufügen", um die Autorisierung abzuschließen','pt-BR':'Cole abaixo e clique em "Confirmar e adicionar" para concluir a autorização','ru':'Вставьте его ниже и нажмите «Подтвердить и добавить», чтобы завершить авторизацию','ar':'الصقها أدناه وانقر "تأكيد وإضافة" لإكمال التفويض'},
-  'Start authorization': {'zh-CN':'开始授权','zh-TW':'開始授權','ja':'承認を開始','ko':'인증 시작','es':'Iniciar autorización','fr':'Démarrer l\'autorisation','de':'Autorisierung starten','pt-BR':'Iniciar autorização','ru':'Начать авторизацию','ar':'بدء التفويض'},
+  'Paste it below and click "Confirm and add" to finish authorization': {'zh-CN':'粘贴到下方输入框，点击"确认添加"完成授权','zh-TW':'貼到下方輸入框，點擊「確認新增」完成授權','ja':'下の入力欄に貼り付けて「確認して追加」をクリックし、承認を完了','ko':'아래 입력란에 붙여넣고 "확인 및 추가"를 클릭하여 인증 완료','es':'Péguela abajo y haga clic en "Confirmar y añadir" para finalizar la autorización','fr':'Collez-la ci-dessous et cliquez sur « Confirmer et ajouter » pour terminer l’autorisation','de':'Fügen Sie sie unten ein und klicken Sie auf „Bestätigen und hinzufügen", um die Autorisierung abzuschließen','pt-BR':'Cole abaixo e clique em "Confirmar e adicionar" para concluir a autorização','ru':'Вставьте его ниже и нажмите «Подтвердить и добавить», чтобы завершить авторизацию','ar':'الصقها أدناه وانقر "تأكيد وإضافة" لإكمال التفويض'},
+  'Start authorization': {'zh-CN':'开始授权','zh-TW':'開始授權','ja':'承認を開始','ko':'인증 시작','es':'Iniciar autorización','fr':'Démarrer l’autorisation','de':'Autorisierung starten','pt-BR':'Iniciar autorização','ru':'Начать авторизацию','ar':'بدء التفويض'},
   'Important': {'zh-CN':'重要提示','zh-TW':'重要提示','ja':'重要','ko':'중요','es':'Importante','fr':'Important','de':'Wichtig','pt-BR':'Importante','ru':'Важно','ar':'مهم'},
-  'After authorization,': {'zh-CN':'授权完成后请','zh-TW':'授權完成後請','ja':'承認後、','ko':'인증 후,','es':'Después de la autorización,','fr':'Après l\'autorisation,','de':'Nach der Autorisierung','pt-BR':'Após a autorização,','ru':'После авторизации','ar':'بعد التفويض،'},
+  'After authorization,': {'zh-CN':'授权完成后请','zh-TW':'授權完成後請','ja':'承認後、','ko':'인증 후,','es':'Después de la autorización,','fr':'Après l’autorisation,','de':'Nach der Autorisierung','pt-BR':'Após a autorização,','ru':'После авторизации','ar':'بعد التفويض،'},
   'ignore the content of the popup page': {'zh-CN':'忽略弹出页面的内容','zh-TW':'忽略彈出頁面的內容','ja':'ポップアップページの内容は無視してください','ko':'팝업 페이지 내용 무시','es':'ignore el contenido de la página emergente','fr':'ignorez le contenu de la page contextuelle','de':'ignorieren Sie den Inhalt der Popup-Seite','pt-BR':'ignore o conteúdo da página pop-up','ru':'игнорируйте содержимое всплывающей страницы','ar':'تجاهل محتوى صفحة النافذة المنبثقة'},
   'and copy the full callback URL from the browser address bar, including the': {'zh-CN':'，复制浏览器地址栏中完整的回调地址（包含','zh-TW':'，複製瀏覽器網址列中完整的回呼位址（包含','ja':'ブラウザのアドレスバーから完全なコールバック URL をコピーし、','ko':'브라우저 주소창에서 전체 콜백 URL을 복사하고','es':'y copie la URL de devolución completa de la barra de direcciones del navegador, incluidos los','fr':'et copiez l\'URL de rappel complète depuis la barre d\'adresse du navigateur, y compris les','de':'und kopieren Sie die vollständige Callback-URL aus der Browser-Adressleiste, einschließlich der','pt-BR':'e copie a URL de retorno completa da barra de endereços do navegador, incluindo os','ru':'и скопируйте полный URL обратного вызова из адресной строки браузера, включая','ar':'وانسخ عنوان URL الكامل لإعادة التوجيه من شريط عنوان المتصفح، بما في ذلك'},
   'parameters.': {'zh-CN':'参数）。','zh-TW':'參數）。','ja':'パラメータを含めてください。','ko':'매개변수를 포함하세요.','es':'parámetros.','fr':'paramètres.','de':'Parameter.','pt-BR':'parâmetros.','ru':'параметры.','ar':'المعلمات.'},
@@ -874,12 +924,12 @@ const localeText={
   'Language': {'zh-CN':'语言','zh-TW':'語言','ja':'言語','ko':'언어','es':'Idioma','fr':'Langue','de':'Sprache','pt-BR':'Idioma','ru':'Язык','ar':'اللغة'},
   'Save settings': {'zh-CN':'保存设置','zh-TW':'儲存設定','ja':'設定を保存','ko':'설정 저장','es':'Guardar ajustes','fr':'Enregistrer les paramètres','de':'Einstellungen speichern','pt-BR':'Salvar configurações','ru':'Сохранить настройки','ar':'حفظ الإعدادات'},
   'Choose the language used by the administration console.': {'zh-CN':'选择管理控制台使用的语言。','zh-TW':'選擇管理主控台使用的語言。','ja':'管理コンソールで使用する言語を選択してください。','ko':'관리 콘솔에서 사용할 언어를 선택하세요.','es':'Elija el idioma que usará la consola de administración.','fr':'Choisissez la langue utilisée par la console d\'administration.','de':'Wählen Sie die Sprache, die von der Administrationskonsole verwendet wird.','pt-BR':'Escolha o idioma usado pelo console de administração.','ru':'Выберите язык, используемый консолью администратора.','ar':'اختر اللغة المستخدمة في وحدة تحكم الإدارة.'},
-  'Create API key': {'zh-CN':'创建 API Key','zh-TW':'建立 API Key','ja':'API キーを作成','ko':'API 키 생성','es':'Crear clave API','fr':'Créer une clé API','de':'API-Schlüssel erstellen','pt-BR':'Criar chave API','ru':'Создать API-ключ','ar':'إنشاء مفتاح API'},
+  'Create API key': {'zh-CN':'创建 API 密钥','zh-TW':'建立 API 金鑰','ja':'API キーを作成','ko':'API 키 생성','es':'Crear clave API','fr':'Créer une clé API','de':'API-Schlüssel erstellen','pt-BR':'Criar chave API','ru':'Создать API-ключ','ar':'إنشاء مفتاح API'},
   'The key is shown only once. Store it securely.': {'zh-CN':'密钥只显示一次，请妥善保存','zh-TW':'金鑰只顯示一次，請妥善保存','ja':'キーは一度だけ表示されます。安全に保管してください。','ko':'키는 한 번만 표시됩니다. 안전하게 보관하세요.','es':'La clave solo se muestra una vez. Guárdela de forma segura.','fr':'La clé n\'est affichée qu\'une fois. Conservez-la en lieu sûr.','de':'Der Schlüssel wird nur einmal angezeigt. Bewahren Sie ihn sicher auf.','pt-BR':'A chave só é mostrada uma vez. Guarde-a com segurança.','ru':'Ключ отображается только один раз. Храните его безопасно.','ar':'يظهر المفتاح مرة واحدة فقط. احفظه بأمان.'},
   'Cancel': {'zh-CN':'取消','zh-TW':'取消','ja':'キャンセル','ko':'취소','es':'Cancelar','fr':'Annuler','de':'Abbrechen','pt-BR':'Cancelar','ru':'Отмена','ar':'إلغاء'},
   'Create': {'zh-CN':'创建','zh-TW':'建立','ja':'作成','ko':'생성','es':'Crear','fr':'Créer','de':'Erstellen','pt-BR':'Criar','ru':'Создать','ar':'إنشاء'},
   'Copy and save this key now': {'zh-CN':'请立即复制保存此密钥','zh-TW':'請立即複製儲存此金鑰','ja':'今すぐこのキーをコピーして保存','ko':'지금 이 키를 복사하여 저장하세요','es':'Copie y guarde esta clave ahora','fr':'Copiez et enregistrez cette clé maintenant','de':'Kopieren und speichern Sie diesen Schlüssel jetzt','pt-BR':'Copie e salve esta chave agora','ru':'Скопируйте и сохраните этот ключ сейчас','ar':'انسخ واحفظ هذا المفتاح الآن'},
-  'Edit API key': {'zh-CN':'编辑 API Key','zh-TW':'編輯 API Key','ja':'API キーを編集','ko':'API 키 편집','es':'Editar clave API','fr':'Modifier la clé API','de':'API-Schlüssel bearbeiten','pt-BR':'Editar chave API','ru':'Редактировать API-ключ','ar':'تحرير مفتاح API'},
+  'Edit API key': {'zh-CN':'编辑 API 密钥','zh-TW':'編輯 API 金鑰','ja':'API キーを編集','ko':'API 키 편집','es':'Editar clave API','fr':'Modifier la clé API','de':'API-Schlüssel bearbeiten','pt-BR':'Editar chave API','ru':'Редактировать API-ключ','ar':'تحرير مفتاح API'},
   'Change the key name': {'zh-CN':'修改密钥名称','zh-TW':'修改金鑰名稱','ja':'キー名を変更','ko':'키 이름 변경','es':'Cambiar el nombre de la clave','fr':'Modifier le nom de la clé','de':'Schlüsselnamen ändern','pt-BR':'Alterar o nome da chave','ru':'Изменить имя ключа','ar':'تغيير اسم المفتاح'},
   'Save': {'zh-CN':'保存','zh-TW':'儲存','ja':'保存','ko':'저장','es':'Guardar','fr':'Enregistrer','de':'Speichern','pt-BR':'Salvar','ru':'Сохранить','ar':'حفظ'},
   'Use API key': {'zh-CN':'使用 API 密钥','zh-TW':'使用 API 金鑰','ja':'API キーを使用','ko':'API 키 사용','es':'Usar clave API','fr':'Utiliser la clé API','de':'API-Schlüssel verwenden','pt-BR':'Usar chave API','ru':'Использовать API-ключ','ar':'استخدام مفتاح API'},
@@ -888,7 +938,7 @@ const localeText={
   'Error': {'zh-CN':'错误','zh-TW':'錯誤','ja':'エラー','ko':'오류','es':'Error','fr':'Erreur','de':'Fehler','pt-BR':'Erro','ru':'Ошибка','ar':'خطأ'},
   'No matching accounts': {'zh-CN':'暂无匹配账号','zh-TW':'暫無符合帳號','ja':'一致するアカウントはありません','ko':'일치하는 계정 없음','es':'No hay cuentas coincidentes','fr':'Aucun compte correspondant','de':'Keine passenden Konten','pt-BR':'Nenhuma conta correspondente','ru':'Нет подходящих аккаунтов','ar':'لا توجد حسابات مطابقة'},
   'Delete': {'zh-CN':'删除','zh-TW':'刪除','ja':'削除','ko':'삭제','es':'Eliminar','fr':'Supprimer','de':'Löschen','pt-BR':'Excluir','ru':'Удалить','ar':'حذف'},
-  'No API keys': {'zh-CN':'暂无 API Key','zh-TW':'暫無 API Key','ja':'API キーはありません','ko':'API 키 없음','es':'No hay claves API','fr':'Aucune clé API','de':'Keine API-Schlüssel','pt-BR':'Nenhuma chave API','ru':'Нет API-ключей','ar':'لا توجد مفاتيح API'},
+  'No API keys': {'zh-CN':'暂无 API 密钥','zh-TW':'暫無 API 金鑰','ja':'API キーはありません','ko':'API 키 없음','es':'No hay claves API','fr':'Aucune clé API','de':'Keine API-Schlüssel','pt-BR':'Nenhuma chave API','ru':'Нет API-ключей','ar':'لا توجد مفاتيح API'},
   'Active': {'zh-CN':'有效','zh-TW':'有效','ja':'有効','ko':'활성','es':'Activo','fr':'Actif','de':'Aktiv','pt-BR':'Ativo','ru':'Активен','ar':'نشط'},
   'Disabled': {'zh-CN':'已禁用','zh-TW':'已停用','ja':'無効','ko':'비활성','es':'Deshabilitado','fr':'Désactivé','de':'Deaktiviert','pt-BR':'Desativado','ru':'Отключен','ar':'معطل'},
   'Enable': {'zh-CN':'启用','zh-TW':'啟用','ja':'有効にする','ko':'활성화','es':'Habilitar','fr':'Activer','de':'Aktivieren','pt-BR':'Ativar','ru':'Включить','ar':'تفعيل'},
@@ -897,7 +947,7 @@ const localeText={
   'No models available': {'zh-CN':'暂无可用模型','zh-TW':'暫無可用模型','ja':'利用可能なモデルはありません','ko':'사용 가능한 모델 없음','es':'No hay modelos disponibles','fr':'Aucun modèle disponible','de':'Keine Modelle verfügbar','pt-BR':'Nenhum modelo disponível','ru':'Нет доступных моделей','ar':'لا توجد نماذج متاحة'},
   'Not tested': {'zh-CN':'未测试','zh-TW':'未測試','ja':'未テスト','ko':'미테스트','es':'Sin probar','fr':'Non testé','de':'Nicht getestet','pt-BR':'Não testado','ru':'Не протестирован','ar':'لم يتم اختباره'},
   'No trend data yet; it will appear after requests are made.': {'zh-CN':'暂无趋势数据，产生请求后自动生成','zh-TW':'暫無趨勢資料，產生要求後自動產生','ja':'トレンドデータはまだありません。リクエスト後に表示されます','ko':'추세 데이터 없음. 요청 후 표시됩니다','es':'Aún no hay datos de tendencia; aparecerán tras las solicitudes','fr':'Pas encore de données de tendance ; elles apparaîtront après les requêtes','de':'Noch keine Trenddaten; sie erscheinen nach Anfragen','pt-BR':'Sem dados de tendência ainda; aparecerão após solicitações','ru':'Пока нет данных о трендах; они появятся после запросов','ar':'لا توجد بيانات اتجاهات بعد؛ ستظهر بعد إجراء الطلبات'},
-  'No data': {'zh-CN':'暂无数据','zh-TW':'暫無資料','ja':'データはありません','ko':'데이터 없음','es':'Sin datos','fr':'Aucune donnée','de':'Keine Daten','pt-BR':'Sem dados','ru':'Нет данных','ar':'لا توجد بيانات'},
+  'No data': {'zh-CN':'暂无数据','zh-TW':'暫無資料','ja':'データはありません','ko':'데이터 없음','es':'Sin datos','fr':'Aucune donnée','de':'Keine Daten','pt-BR':'Sem dados','ru':'Нет данных','ar':'لا توجد 데이터'},
   'Healthy': {'zh-CN':'正常','zh-TW':'正常','ja':'正常','ko':'정상','es':'Saludable','fr':'Sain','de':'Gesund','pt-BR':'Saudável','ru':'Работает','ar':'سليم'},
   'Unreachable': {'zh-CN':'不可达','zh-TW':'不可達','ja':'到達不能','ko':'연결 불가','es':'Inaccesible','fr':'Injoignable','de':'Nicht erreichbar','pt-BR':'Inacessível','ru':'Недоступен','ar':'غير قابل للوصول'},
   'Upstream error': {'zh-CN':'上游异常','zh-TW':'上游異常','ja':'アップストリームエラー','ko':'업스트림 오류','es':'Error de origen','fr':'Erreur en amont','de':'Upstream-Fehler','pt-BR':'Erro de origem','ru':'Ошибка вышестоящего сервиса','ar':'خطأ المنبع'},
@@ -1010,7 +1060,7 @@ function showPage(p){
     document.querySelector('[data-page="'+k+'"]')?.classList.toggle('active',k===p);
   });
   $('pageTitle').textContent=pages[p];
-  if(p==='dashboard'){loadStats();loadOnboarding();}
+  if(p==='dashboard'){loadStats();loadOnboarding();loadAccounts();}
   if(p==='usage')loadUsage();
   if(p==='accounts')loadAccounts();
   if(p==='apikeys')loadKeys();
@@ -1058,7 +1108,14 @@ async function api(path,opts={}){
   const r=await fetch(path,opts);
   const t=await r.text();
   let d;try{d=t?JSON.parse(t):{}}catch{d={error:{message:t}}};
-  if(!r.ok)throw Error(d?.error?.message||t||'Request failed');
+  if(!r.ok){
+    const rawMsg=d?.error?.message||t||'Request failed';
+    const translated=translateText(rawMsg);
+    const e=new Error(translated||rawMsg);
+    e.status=r.status;
+    e.rawMessage=rawMsg;
+    throw e;
+  }
   return d;
 }
 
@@ -1087,10 +1144,10 @@ async function loadStats(){
     $('stat-rate').textContent=(s.hit_rate||0).toFixed(1);
     $('stat-saved').textContent=(s.tokens_saved||0);
     $('ovCacheHits').textContent=fmtTok(s.cache_hits||0);
-    $('ovCacheRate').textContent='Hit rate '+((s.hit_rate||0)).toFixed(1)+'%';
+    $('ovCacheRate').textContent=translateText('Hit rate')+' '+((s.hit_rate||0)).toFixed(1)+'%';
     const sum=(u.stats||{}).summary||{};
     $('ov24hTok').textContent=fmtTok(sum.last24h_tokens||0);
-    $('ov24hReq').textContent=(sum.last24h_requests||0)+' requests';
+    $('ov24hReq').textContent=(sum.last24h_requests||0)+' 次请求';
     $('ovTotalTok').textContent=fmtTok(sum.tokens||0);
     $('ovTotalReq').textContent=(sum.requests||0)+' requests';
     // 请求计数卡：主数值是今日请求数，token 数放副行。
@@ -1098,6 +1155,47 @@ async function loadStats(){
     $('ovTodayTok').textContent=fmtTok(sum.today_tokens||0)+' tokens today';
     loadRecentRequests();
   }catch(e){}
+}
+
+const QUOTA_LABELS={LLMOnly:'对话',ImageGeneration:'生图',GraphicArt:'GraphicArt',VisualCreator:'Visual创作',ClaudeOpusQuery:'Claude Opus',ClaudeOpusQuery75:'Claude 75',ClaudeOpusQueryC1:'Claude C1',ClaudeOpusQueryC2:'Claude C2',ClaudeOpusQueryDaily:'Claude 日限',ClaudeOpusQueryDailyC1:'Claude 日C1',ClaudeOpusQueryDailyC2:'Claude 日C2',ClaudeOpusQueryDailyWord:'Claude 日Word',ClaudeOpusQueryDev:'Claude Dev',ClaudeOpusQueryHourlyDev:'Claude 小时Dev',ClaudeOpusQueryWeeklyWord:'Claude 周Word',ArtifactGeneration:'产物',WXPAgentMode:'Agent',FileReference:'文件引用',CodeInterpreter:'代码解释',ImageAnalysis:'图像分析',DeepResearch:'深度研究',DeepWork:'DeepWork',CopilotTuning:'调优',NotebookCowork:'Notebook',PersonalDataAccess:'个人数据',TenantDataAccess:'租户数据',ReasoningModelTurnUsage:'推理',CostQuota:'成本'};
+const QUOTA_ICONS={LLMOnly:'message-circle',ImageGeneration:'image',ClaudeOpusQuery:'sparkles',ClaudeOpusQueryDaily:'calendar',ArtifactGeneration:'box',WXPAgentMode:'bot',FileReference:'file-text',CodeInterpreter:'code-2',ReasoningModelTurnUsage:'brain'};
+function renderQuotaDashboard(){
+  const list=_accountsCache||[];
+  const card=$('quotaDashboard'); if(!card) return;
+  if(!list.length){ card.style.display='none'; return; }
+  card.style.display='';
+  const totals={}; let withData=0;
+  list.filter(x=>x.status==='online'&&!x.rateLimited&&x.meterHasAccess!==false&&!x.remainingAllowanceStale).forEach(x=>{
+    const r=x.remainingAllowance||{};
+    if(Object.keys(r).length) withData++;
+    Object.entries(r).forEach(([k,v])=>{ totals[k]=(totals[k]||0)+(Number(v)||0); });
+  });
+  const preferred=['LLMOnly','ImageGeneration','ClaudeOpusQuery','ClaudeOpusQueryDaily','ClaudeOpusQuery75','ArtifactGeneration','WXPAgentMode','FileReference'];
+  let keys=[...preferred.filter(k=>k in totals),...Object.keys(totals).filter(k=>!preferred.includes(k)).sort()];
+  keys=keys.filter(k=> totals[k]!==0 || ['LLMOnly','ImageGeneration','ClaudeOpusQuery'].includes(k));
+  const totalBadges=keys.map(k=>{
+    const v=totals[k]; const label=QUOTA_LABELS[k]||k; const icon=QUOTA_ICONS[k]||'layers';
+    const hint=k==='ImageGeneration'?`可再生 ${v} 张图`:k==='LLMOnly'?`可对话约 ${v} 次`:k.includes('Claude')?`Claude 剩余 ${v} 次`:`剩余 ${v}`;
+    const low=v<=10&&v>0, zero=v===0;
+    return `<div style="min-width:148px;flex:1;padding:12px;border-radius:12px;border:1px solid ${zero?'#fecaca':low?'#fde68a':'var(--line)'};background:var(--surface);box-shadow:var(--shadow-sm);animation:slideUp .3s var(--ease-out) both"><div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)"><i data-lucide="${icon}" style="width:12px;height:12px"></i>${esc(label)} · ${esc(k)}</div><div style="font-size:22px;font-weight:700;margin-top:6px;letter-spacing:-0.02em;color:${zero?'var(--danger)':''}">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${hint}</div></div>`;
+  }).join('');
+  $('quotaTotals').innerHTML=totalBadges?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">${totalBadges}</div>`:'<span style="font-size:12px;color:var(--muted)">暂无上游剩余额度快照，等待下一次请求回写</span>';
+  const cooldowns=list.filter(x=>x.cooldownUntil).sort((a,b)=>new Date(a.cooldownUntil)-new Date(b.cooldownUntil));
+  const now=Date.now();
+  const busy=list.filter(x=> (x.concurrency||0)>0).length;
+  const circuit=list.some(x=> x.globalCircuit==='open');
+  $('quotaCooldowns').innerHTML=cooldowns.length?cooldowns.map(x=>{
+    const until=new Date(x.cooldownUntil).getTime(); const left=Math.max(0,until-now); const mins=Math.ceil(left/60000);
+    const pct=Math.max(0,Math.min(100,Math.round((left/(15*60000))*100)));
+    const conc=x.concurrency?` · 并发 ${x.concurrency}`:''; const proxy=x.boundProxy?` · 代理 ${esc(x.boundProxy)}`:'';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:var(--surface)"><span style="font-size:12px;flex:1">${esc(x.email||x.displayName||x.id)} · 冷却中 · ${mins} 分钟后再次检测${conc}${proxy}</span><span style="width:90px;height:6px;background:var(--border);border-radius:999px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:#d97706"></span></span></div>`;
+  }).join(''):`<div style="font-size:12px;color:var(--muted);margin-top:8px">无冷却账号 · 调度可用${busy?` · ${busy} 并发中`:''}${circuit?' · 全局熔断开启':''}</div>`;
+  const avail=list.filter(x=>x.status==='online'&&!x.rateLimited&&x.meterHasAccess!==false&&!x.remainingAllowanceStale).length;
+  const total=list.length;
+  const over=list.filter(x=>x.meterError).length;
+  $('quotaSub').textContent=`${withData}/${total} 已同步额度 · ${avail} 可调度${busy?` · ${busy} 并发`:''}` + (over?` · ${over} 限流`:'') + (circuit?' · 熔断':'');
+  $('quotaAdvice').textContent=avail===0?'全部账号冷却中，等待恢复或增加账号':'生图为 0 的账号仍可接纯文本请求';
+  try{ lucide.createIcons(); }catch(e){}
 }
 
 async function loadRecentRequests(){
@@ -1110,12 +1208,41 @@ async function loadRecentRequests(){
       <td><span class="token-stack"><b>${(x.input_tokens||0)+(x.output_tokens||0)+(x.cache_tokens||0)}</b></span></td>
       <td>${x.error?'<span class="usage-status err">Error</span>':'<span class="usage-status">Success</span>'}</td>
     </tr>`).join('');
-    $('dashRecentRows').innerHTML=rows||'<tr><td colspan="5" class="empty">No requests yet</td></tr>';
-  }catch(e){$('dashRecentRows').innerHTML=`<tr><td colspan="5" class="empty">No requests yet</td></tr>`;}
+    $('dashRecentRows').innerHTML=rows||`<tr><td colspan="5" class="empty">${translateText('No requests yet')}</td></tr>`;
+  }catch(e){$('dashRecentRows').innerHTML=`<tr><td colspan="5" class="empty">${translateText('No requests yet')}</td></tr>`;}
 }
 
 let _accountsCache=[],_accountFilter='all';
 function setAccountFilter(f){_accountFilter=f;document.querySelectorAll('#accountFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===f));renderAccounts();}
+function accountQuotaDetails(x){
+  const remaining=x.remainingAllowance||{};
+  const unavailable=x.status==='cooldown'||x.rateLimited||x.meterHasAccess===false||x.remainingAllowanceStale;
+  const preferred=['LLMOnly','ImageGeneration','ClaudeOpusQuery','ClaudeOpusQueryDaily','ArtifactGeneration','WXPAgentMode'];
+  let order=[...preferred.filter(k=>k in remaining),...Object.keys(remaining).filter(k=>!preferred.includes(k)).sort()];
+  order=order.filter(k=> remaining[k]!==0 || ['LLMOnly','ImageGeneration','ClaudeOpusQuery'].includes(k));
+  const badges=order.map(k=>{
+    const v=remaining[k];
+    const low=v!==undefined&&v<=10;
+    const zero=v===0;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1px solid ${zero?'var(--danger)':low?'#d97706':'var(--border)'};background:${zero?'#fef2f2':low?'#fffbeb':'var(--card)'};font-size:11px;line-height:1"><b>${esc(k)}</b><span style="color:${zero?'var(--danger)':low?'#92400e':'var(--muted)'}">${v}</span></span>`;
+  }).join('');
+  const throttling=x.throttling||{};
+  const used=throttling.numUserMessagesInConversation;
+  const max=throttling.maxNumUserMessagesInConversation;
+  let conv='';
+  if(Number.isFinite(used)&&Number.isFinite(max)&&max>0){
+    const pct=Math.min(100,Math.round(used/max*100));
+    const barColor=pct>=90?'var(--danger)':pct>=70?'#d97706':'var(--primary)';
+    conv=`<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="font-size:11px;color:var(--muted)">对话 ${used} / ${max}</span><span style="flex:1;max-width:120px;height:6px;background:var(--border);border-radius:999px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${barColor}"></span></span><span style="font-size:11px;color:var(--muted)">${pct}%</span></div>`;
+  } else if (x.meterError||badges) {
+    conv=`<div style="font-size:11px;color:var(--muted);margin-top:6px">对话水位暂无数据（等待下一次请求回写）</div>`;
+  }
+  const reason=x.status==='cooldown'?'当前冷却中':x.rateLimited?'当前限流':x.meterHasAccess===false?'当前无访问权限':x.remainingAllowanceStale?'当前快照已过期':'';
+  const meter=reason||x.meterError?`<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:11px">${esc(reason||x.meterError)}${reason&&x.meterError?' · '+esc(x.meterError):''}</div>`:'';
+  const snapshot=badges?`<div style="font-size:11px;color:var(--muted);margin-top:6px">${unavailable?'上游历史快照':'上游额度快照'}${x.remainingAllowanceUpdatedAt?' · '+new Date(x.remainingAllowanceUpdatedAt).toLocaleString():''}</div>`:'';
+  if(!badges&&!meter&&!conv) return `<div style="font-size:11px;color:var(--muted);margin-top:6px">额度数据等待下一次成功请求后展示</div>`;
+  return `<div style="margin-top:6px">${meter}${snapshot}${conv}${badges?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;opacity:${unavailable?'.65':'1'}">${badges}</div>`:''}</div>`;
+}
 function renderAccounts(){
   const q=($('accountSearch').value||'').trim().toLowerCase();
   const list=_accountsCache.filter(x=>{
@@ -1125,22 +1252,69 @@ function renderAccounts(){
     if(q&&!((x.displayName||'')+' '+(x.email||'')).toLowerCase().includes(q))return false;
     return true;
   });
-  $('accountRows').innerHTML=list.length?list.map(x=>{
+  const rows=$('accountRows');
+  rows.replaceChildren();
+  if(!list.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent='No matching accounts';tr.append(td);rows.append(tr);return;}
+  list.forEach(x=>{
     const cooldown=x.cooldownUntil?`<div style="font-size:11px;color:var(--muted);margin-top:3px"><span>Cooldown until</span> ${new Date(x.cooldownUntil).toLocaleString()}</div>`:'';
     const status=x.status==='cooldown'?`<div><span class="status cooldown"><i></i>Cooldown</span>${cooldown}</div>`:x.status==='online'?'<span class="status online"><i></i>Online</span>':'<span class="status offline"><i></i>Offline</span>';
-    const calls=x.rateLimited?`Limited after ${x.callCount||0} calls`:`Called ${x.callCount||0} times`;
+    const calls=(x.rateLimited?`<span style="color:var(--warning);font-weight:600">⚠ Limited after ${x.callCount||0} calls</span>`:`Called ${x.callCount||0} times`)+accountQuotaDetails(x);
     const scheduleEnabled=x.scheduleEnabled!==false;
-    const proxyLabel=x.boundProxy?`<span style="font-size:11px;word-break:break-all">${esc(x.boundProxy)}</span>`:'<span style="color:var(--muted);font-size:11px">—</span>';
-    return `<tr><td><div class="account-cell"><div class="avatar">${(x.displayName||x.email||'M')[0]}</div><div><b>${x.displayName||x.email}</b><div style="font-size:11px;color:var(--muted)">${x.email||''}</div></div></div></td><td style="font-size:12px;white-space:nowrap">${calls}</td><td>${status}</td><td style="font-size:12px;color:var(--muted)">${x.updatedAt?new Date(x.updatedAt).toLocaleString():'-'}</td><td><button class="btn-sm btn${scheduleEnabled?'':' danger'}" onclick="toggleAccountSchedule('${x.id}',${!scheduleEnabled})">${scheduleEnabled?'Enabled':'Disabled'}</button></td><td>${proxyLabel} <button class="btn-sm btn" style="margin-top:2px" onclick="bindAccountProxy('${x.id}','${esc(x.boundProxy||'')}')">Bind</button></td><td><button class="btn-sm btn danger" onclick="deleteAccount('${x.id}')">Delete</button></td></tr>`;
-  }).join(''):'<tr><td colspan="7" class="empty">No matching accounts</td></tr>';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div class="account-cell"><div class="avatar"></div><div><b></b><div class="account-email" style="font-size:11px;color:var(--muted)"></div></div></div></td><td style="font-size:12px;white-space:nowrap">${calls}<div style="margin-top:6px"><button class="btn-sm btn" data-account-action="probe">刷新额度</button></div></td><td>${status}</td><td style="font-size:12px;color:var(--muted)">${x.updatedAt?new Date(x.updatedAt).toLocaleString():'-'}</td><td><button class="btn-sm btn${scheduleEnabled?'':' danger'}" data-account-action="schedule">${scheduleEnabled?'Enabled':'Disabled'}</button></td><td><span class="account-proxy" style="font-size:11px;word-break:break-all"></span> <button class="btn-sm btn" style="margin-top:2px" data-account-action="proxy">Bind</button></td><td><button class="btn-sm btn danger" data-account-action="delete">Delete</button></td>`;
+    tr.querySelector('.avatar').textContent=(x.displayName||x.email||'M')[0];
+    tr.querySelector('b').textContent=x.displayName||x.email||'';
+    tr.querySelector('.account-email').textContent=x.email||'';
+    const proxy=tr.querySelector('.account-proxy');proxy.textContent=x.boundProxy||'—';if(!x.boundProxy)proxy.style.color='var(--muted)';
+    tr.querySelector('[data-account-action="schedule"]').addEventListener('click',()=>toggleAccountSchedule(x.id,!scheduleEnabled));
+    tr.querySelector('[data-account-action="proxy"]').addEventListener('click',()=>bindAccountProxy(x.id,x.boundProxy||''));
+    tr.querySelector('[data-account-action="probe"]').addEventListener('click',()=>probeAccount(x.id, tr.querySelector('[data-account-action="probe"]')));
+    tr.querySelector('[data-account-action="delete"]').addEventListener('click',()=>deleteAccount(x.id));
+    rows.append(tr);
+  });
 }
+async function probeAccount(id, btn){
+  if(btn){ btn.disabled=true; btn.textContent='刷新中…'; }
+  try{ await api('/api/admin/models/test',{method:'POST',body:JSON.stringify({model:'m365-copilot', account_id:id})}); showNotice('额度已刷新','success'); await loadAccounts(); }catch(e){ showNotice(e.message,'error'); }finally{ if(btn){ btn.disabled=false; btn.textContent='刷新额度'; } }
+}
+async function testSingleModel(id, btn){
+  const model=prompt('输入要测试的模型名','m365-copilot')?.trim(); if(!model) return;
+  if(btn){ btn.disabled=true; btn.textContent='测试中…'; }
+  try{ const r=await api('/api/admin/models/test',{method:'POST',body:JSON.stringify({model, account_id:id})}); showNotice(`单测成功 ${r.latency_ms||''}ms`,'success'); }catch(e){ showNotice(e.message,'error'); }finally{ if(btn){ btn.disabled=false; btn.textContent='单测模型'; } }
+}
+let _accountsTimer=null;
 async function loadAccounts(){
   try{
     const d=await api('/api/accounts');
-    _accountsCache=d.accounts||[];
+    const health=d.health||{};
+    _accountsCache=(d.accounts||[]).map(account=>Object.assign({},health[account.id]||{},account,{
+      remainingAllowance:(health[account.id]||{}).remainingAllowance||account.remainingAllowance,
+      remainingAllowanceUpdatedAt:(health[account.id]||{}).remainingAllowanceUpdatedAt,
+      remainingAllowanceStale:Boolean((health[account.id]||{}).remainingAllowanceStale),
+      meterHasAccess:(health[account.id]||{}).hasAccess??account.meterHasAccess
+    }));
     renderAccounts();
-  }catch(e){$('accountRows').innerHTML=`<tr><td colspan="7" class="empty">${e.message}</td></tr>`;}
+    renderQuotaDashboard();
+    const limited=_accountsCache.filter(x=>x.rateLimited||x.status==='cooldown');
+    if(limited.length){
+      showNotice(`${limited.length} 个账号处于限流/冷却（15m 后自动探活）`,'info');
+      const warn=document.createElement('div');
+      warn.className='quota-warn';
+      warn.style.cssText='margin:8px 0;padding:10px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:10px;font-size:12px';
+      warn.innerHTML=`<b>${limited.length} 个账号暂时不可用（上游限流/冷却）</b><br>`+limited.map(x=>`• ${x.email||x.id} ${x.cooldownUntil?'至 '+new Date(x.cooldownUntil).toLocaleTimeString():''}`).join('<br>');
+      const dashboard=document.getElementById('quotaDashboard');
+      dashboard.querySelectorAll('.quota-warn').forEach(e=>e.remove());
+      dashboard.prepend(warn);
+    }
+    }catch(e){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent=e.message;tr.append(td);$('accountRows').replaceChildren(tr);}
 }
+function startAccountsPolling(){
+  if(_accountsTimer) return;
+  _accountsTimer=setInterval(()=>{ if(document.visibilityState!=='visible') return; const a=document.getElementById('page-accounts')?.classList.contains('active'), d=document.getElementById('page-dashboard')?.classList.contains('active'); if(a||d) loadAccounts(); },15000);
+}
+function stopAccountsPolling(){ if(_accountsTimer){ clearInterval(_accountsTimer); _accountsTimer=null; } }
+document.addEventListener('DOMContentLoaded', startAccountsPolling);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') loadAccounts(); });
 
 async function toggleAccountSchedule(id,enabled){
   try{
@@ -1162,6 +1336,84 @@ function bindAccountProxy(id,current){
   if(url===null)return;
   api('/api/accounts/bind-proxy',{method:'POST',body:JSON.stringify({id,proxyUrl:url.trim()})}).then(()=>{showNotice(url.trim()?'Proxy bound':'Proxy unbound','success');loadAccounts();}).catch(e=>showNotice(e.message,'error'));
 }
+
+/* Microsoft Graph batch user creation is temporarily disabled. Keep the implementation dormant so page loading creates no Graph handlers, requests, timers, logs, or other runtime work. */
+const disabledGraphBatchUserCreationImplementation=()=>{
+async function checkGraphConfig(){
+  const status=$('graphConfigStatus');
+  const createButton=$('graphCreateButton');
+  createButton.disabled=true;
+  status.textContent='正在检查管理员连接状态…';
+  try{
+    const d=await api('/api/admin/graph/authorization/status');
+    $('graphDiagnosticText').textContent=JSON.stringify(d,null,2);
+    $('graphAuthorizeButton').disabled=!d.masterKeyConfigured||!d.clientConfigured;
+    createButton.disabled=!d.ready;
+    status.textContent=d.message||'Graph 准备状态未知，请重新检查。';
+    return d;
+  }catch(e){createButton.disabled=true;status.textContent='状态检查失败，请确认开发服务正在运行后重试。';$('graphDiagnosticText').textContent=e.message;return null;}
+}
+
+async function startGraphAuthorization(){
+  const status=$('graphConfigStatus');
+  const readiness=await checkGraphConfig();
+  if(!readiness||!readiness.masterKeyConfigured||!readiness.clientConfigured)return;
+  status.textContent='正在打开 Microsoft 管理员登录页面…';
+  try{
+    const d=await api('/api/admin/graph/authorization/start',{method:'POST'});
+    window.open(d.url,'graph-authorization','noopener,noreferrer');
+    status.textContent='请在新窗口中完成管理员授权，完成后返回此页面检查状态。';
+  }catch(e){status.textContent='无法开始管理员连接，请按上方提示检查准备步骤后重试。';$('graphDiagnosticText').textContent=e.message;}
+}
+
+function generateGraphPassword(){
+  const bytes=new Uint32Array(4);crypto.getRandomValues(bytes);
+  $('graphInitialPassword').value=`M${bytes[0].toString(36)}!${bytes[1].toString(36)}aA${bytes[2].toString(36)}#${bytes[3].toString(36)}`;
+  $('graphInitialPassword').type='text';
+}
+
+async function revokeGraphAuthorization(){
+  const status=$('graphConfigStatus');
+  status.textContent='正在撤销本地 Graph 授权…';
+  try{
+    const d=await api('/api/admin/graph/authorization/revoke',{method:'POST'});
+    status.textContent=d.consentRevocationRequired?'本地授权已删除；如需彻底撤销，请同时在 Microsoft Entra 中撤销管理员同意。':'本地授权已删除。';
+  }catch(e){status.textContent=e.message;}
+}
+
+async function createGraphUsers(event){
+  event.preventDefault();
+  const button=$('graphCreateButton'),results=$('graphBatchResults');
+  if(button.dataset.busy==='1')return;
+  button.dataset.busy='1';
+  button.disabled=true;
+  button.textContent='正在检查…';
+  results.textContent='正在检查创建条件…';
+  const readiness=await checkGraphConfig();
+  if(!readiness||!readiness.ready){
+    results.textContent=readiness&&readiness.message?readiness.message:'当前无法创建用户，请先按管理员连接区域中的提示完成配置。';
+    button.dataset.busy='0';
+    button.textContent='批量创建';
+    return;
+  }
+  button.disabled=true;
+  button.textContent='正在创建…';
+  results.textContent='正在创建用户…';
+  const body={domain:$('graphDomain').value.trim(),prefix:$('graphPrefix').value.trim(),start:Number($('graphStart').value),count:Number($('graphCount').value),displayName:$('graphDisplayName').value.trim(),usageLocation:$('graphUsageLocation').value.trim(),skuId:$('graphSkuId').value.trim(),initialPassword:$('graphInitialPassword').value,forceChangePasswordNextSignIn:$('graphForcePasswordChange').checked};
+  try{
+    const d=await api('/api/admin/graph/users/batch',{method:'POST',body:JSON.stringify(body)});
+    results.replaceChildren();
+    const note=document.createElement('div');note.className='highlight-box warning';note.textContent='创建成功不代表已加入账号池。每个账号仍需分别完成 Microsoft 登录和 OAuth 授权。';results.append(note);
+    (d.results||[]).forEach(x=>{
+      const row=document.createElement('div');row.className='highlight-box '+(x.success?'success':'warning');row.style.marginTop='8px';
+      const text=document.createElement('span');text.textContent=`${x.userPrincipalName}：${x.success?'创建成功':x.error||'创建失败'}`;row.append(text);
+      if(x.userId){const auth=document.createElement('button');auth.className='btn btn-sm primary';auth.style.marginLeft='8px';auth.textContent='开始 OAuth 授权';auth.onclick=startPKCE;row.append(auth);}
+      results.append(row);
+    });
+  }catch(e){results.textContent='批量创建失败，请重新检查管理员授权或应用凭据。技术详情请查看高级诊断。';$('graphDiagnosticText').textContent=e.message;}
+  finally{$('graphInitialPassword').value='';button.dataset.busy='0';button.textContent='批量创建';await checkGraphConfig();}
+}
+};
 
 async function startPKCE(){
   try{
@@ -1211,12 +1463,38 @@ async function loadKeys(){
 }
 
 let editKeyId=null;
-function editKey(id,name){editKeyId=id;$('editKeyName').value=name;$('editKeyModal').classList.add('open');setTimeout(()=>$('editKeyName').focus(),50);}
+function editKey(id,name,accountIds){
+  editKeyId=id;
+  $('editKeyName').value=name;
+  const selected=new Set(accountIds||[]),container=$('editKeyAccounts');
+  container.replaceChildren();
+  if(!_accountsCache.length){
+    const hint=document.createElement('div');
+    hint.className='form-hint';
+    hint.textContent='当前没有可绑定的出口账号。';
+    container.append(hint);
+  }
+  _accountsCache.forEach(account=>{
+    const label=document.createElement('label');
+    label.style.cssText='display:flex;align-items:center;gap:8px';
+    const input=document.createElement('input');
+    input.type='checkbox';
+    input.value=account.id;
+    input.checked=selected.has(account.id);
+    const text=document.createElement('span');
+    text.textContent=account.email||account.id;
+    label.append(input,text);
+    container.append(label);
+  });
+  $('editKeyModal').classList.add('open');
+  setTimeout(()=>$('editKeyName').focus(),50);
+}
 function closeEditKeyModal(){$('editKeyModal').classList.remove('open');editKeyId=null;}
 async function saveEditKey(){
   const name=$('editKeyName').value.trim();
   if(!name)return showNotice('名称不能为空','error');
-  try{await api('/api/admin/keys',{method:'PUT',body:JSON.stringify({id:editKeyId,name})});closeEditKeyModal();showNotice('已更新','success');loadKeys();}
+  const accountIds=[...$('editKeyAccounts').querySelectorAll('input:checked')].map(input=>input.value);
+  try{await api('/api/admin/keys',{method:'PUT',body:JSON.stringify({id:editKeyId,name,accountIds})});closeEditKeyModal();showNotice('已更新','success');loadKeys();}
   catch(e){showNotice(e.message,'error');}
 }
 async function toggleKey(id,revoked){
@@ -1267,7 +1545,7 @@ async function loadUsage(){
     $('ug-req').textContent=fmtNum(s.requests);
     $('ug-req-sub').textContent='Today +'+(s.today_requests||0);
     $('ug-tok').textContent=fmtTok(s.tokens);
-    $('ug-tok-sub').textContent='Input '+(s.input||0)+' · Output '+(s.output||0);
+    $('ug-tok-sub').textContent='输入 '+(s.input||0)+' · 输出 '+(s.output||0);
     $('ug-cache').textContent=fmtTok(s.cache);
     $('ug-ms').textContent=(s.avg_ms||0).toLocaleString();
     renderTrend('ugTrendWrap',(d.stats||{}).trend||[]);
@@ -1276,7 +1554,7 @@ async function loadUsage(){
     renderBars('ugKeys',(d.stats||{}).keys||[],m=>m.api_key_name||m.api_key_prefix,'requests');
     loadUsageLogs();
   }catch(e){
-    $('ugLogRows').innerHTML=`<tr><td colspan="6" class="empty">${e.message}</td></tr>`;
+    const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty';td.textContent=e.message;tr.append(td);$('ugLogRows').replaceChildren(tr);
   }
 }
 
@@ -1325,7 +1603,7 @@ function renderTrend(wrapId, trend){
 
 function renderBars(id,items,labelFn,valKey){
   const el=$(id);
-  if(!items.length){el.innerHTML='<div class="chart-empty"><i data-lucide="chart-bar"></i>No data</div>';try{lucide.createIcons();}catch(e){}return;}
+  if(!items.length){el.innerHTML=`<div class="chart-empty"><i data-lucide="chart-bar"></i>${translateText('No data')}</div>`;try{lucide.createIcons();}catch(e){}return;}
   const palettes=['','green','orange','purple','teal','red','pink'];
   const max=Math.max(...items.map(i=>i[valKey]),1);
   const top=items.slice(0,8);
@@ -1349,13 +1627,13 @@ async function loadUsageLogs(){
       <td><span class="token-stack"><b>${(x.input_tokens||0)+(x.output_tokens||0)+(x.cache_tokens||0)}</b> in${x.input_tokens||0}/out${x.output_tokens||0}/cache${x.cache_tokens||0}</span></td>
       <td style="font-size:12px;color:var(--muted)">${(x.duration_ms||0)} ms</td>
     </tr>`).join('');
-    $('ugLogRows').innerHTML=rows||'<tr><td colspan="6" class="empty">No requests yet</td></tr>';
+    $('ugLogRows').innerHTML=rows||`<tr><td colspan="6" class="empty">${translateText('No requests yet')}</td></tr>`;
     const totalPages=Math.max(1,Math.ceil(ugTotal/UG_PAGE));
     $('ugPageInfo').textContent=`Page ${ugPageNo+1} / ${totalPages} · ${ugTotal} total`;
     $('ugPrev').disabled=ugPageNo<=0;
     $('ugNext').disabled=ugPageNo>=totalPages-1;
   }catch(e){
-    $('ugLogRows').innerHTML=`<tr><td colspan="6" class="empty">${e.message}</td></tr>`;
+    const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty';td.textContent=e.message;tr.append(td);$('ugLogRows').replaceChildren(tr);
   }
 }
 
@@ -1592,9 +1870,9 @@ async function cleanupAll(){
 
 function proxyRow(x){
   const inCooldown=x.cooldownUntil&&new Date(x.cooldownUntil)>new Date();
-  const badge=x.health==='reachable'?'<span class="status online"><i></i>Healthy</span>':x.health==='unreachable'?'<span class="status offline"><i></i>Unreachable</span>':x.health==='upstream_error'?'<span class="status warn"><i></i>Upstream error</span>':'<span class="status">Not checked</span>';
+  const badge=x.health==='reachable'?'<span class="status online"><i></i>'+translateText('Healthy')+'</span>':x.health==='unreachable'?'<span class="status offline"><i></i>'+translateText('Unreachable')+'</span>':x.health==='upstream_error'?'<span class="status warn"><i></i>'+translateText('Upstream error')+'</span>':'<span class="status">'+translateText('Not checked')+'</span>';
   return `<tr>
-    <td><code style="font-size:12px">${esc(x.url)}</code>${inCooldown?'<div style="font-size:11px;color:var(--muted)">Cooling down</div>':''}</td>
+    <td><code style="font-size:12px">${esc(x.url)}</code>${inCooldown?'<div style="font-size:11px;color:var(--muted)">'+translateText('Cooling down')+'</div>':''}</td>
     <td>${badge}</td>
     <td style="font-size:12px;color:var(--muted)">${x.latencyMs>0?x.latencyMs+' ms':'-'}</td>
     <td style="font-size:12px;color:var(--muted)">${x.failures||0}</td>
@@ -1609,15 +1887,15 @@ async function loadProxies(){
   try{
     const d=await api('/api/admin/proxy-pool');
     const p=d.proxies||[];
-    $('proxyRows').innerHTML=p.length?p.map(proxyRow).join(''):'<tr><td colspan="6" class="empty">No proxies; requests will connect directly</td></tr>';
-  }catch(e){$('proxyRows').innerHTML=`<tr><td colspan="6" class="empty">${e.message}</td></tr>`;}
+    $('proxyRows').innerHTML=p.length?p.map(proxyRow).join(''):`<tr><td colspan="6" class="empty">${translateText('No proxies; requests will connect directly')}</td></tr>`;
+  }catch(e){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='empty';td.textContent=e.message;tr.append(td);$('proxyRows').replaceChildren(tr);}
 }
 async function proxyAdd(){
   const raw=$('proxyInput').value.trim();
   if(!raw)return showNotice('请输入代理地址','error');
   try{
     const d=await api('/api/admin/proxy-pool',{method:'POST',body:JSON.stringify({urls:[raw]})});
-    showNotice('Added '+d.added+' proxies','success');$('proxyInput').value='';loadProxies();
+    showNotice('已添加 '+d.added+' 个代理','success');$('proxyInput').value='';loadProxies();
   }catch(e){showNotice(e.message,'error');}
 }
 async function proxyRemove(url){
@@ -1654,13 +1932,14 @@ async function proxyTest(){
 }
 
 async function loadModelTest(){
-  $('modelTestRows').innerHTML='<tr><td colspan="4" class="empty">Loading...</td></tr>';
+  $('modelTestRows').innerHTML=`<tr><td colspan="4" class="empty">${translateText('Loading...')}</td></tr>`;
   try{
-    const d=await api('/api/admin/models');
-    const models=d.data||[];
-    if(!models.length){$('modelTestRows').innerHTML='<tr><td colspan="4" class="empty">No models available</td></tr>';return;}
-    $('modelTestRows').innerHTML=models.map(m=>`<tr data-model="${esc(m.id)}"><td><b>${esc(m.id)}</b></td><td><span class="status"><i></i>Not tested</span></td><td style="font-size:12px;color:var(--muted)">-</td><td style="font-size:12px;color:var(--muted)">点击"测试全部"</td></tr>`).join('');
-  }catch(e){$('modelTestRows').innerHTML=`<tr><td colspan="4" class="empty">${e.message}</td></tr>`;}
+    const [md, ac]=await Promise.all([api('/api/admin/models'), api('/api/accounts').catch(()=>({accounts:[]}))]);
+    const models=md.data||[];
+    const sel=$('modelTestAccount'); sel.innerHTML='<option value="">自动选择账号</option>'+(ac.accounts||[]).map(a=>`<option value="${esc(a.id)}">${esc(a.email||a.id)} ${a.status==='cooldown'?'(冷却)':''}</option>`).join('');
+    if(!models.length){$('modelTestRows').innerHTML=`<tr><td colspan="4" class="empty">${translateText('No models available')}</td></tr>`;return;}
+    $('modelTestRows').innerHTML=models.map(m=>`<tr data-model="${esc(m.id)}"><td><b>${esc(m.id)}</b></td><td><span class="status"><i></i>Not tested</span></td><td style="font-size:12px;color:var(--muted)">-</td><td style="font-size:12px;color:var(--muted)"><button class="btn-sm btn" onclick="modelTestOne('${esc(m.id)}', this.closest('tr'))">测试</button></td></tr>`).join('');
+  }catch(e){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.className='empty';td.textContent=e.message;tr.append(td);$('modelTestRows').replaceChildren(tr);}
 }
 async function modelTestOne(id,row){
   const badge=row.querySelector('td:nth-child(2)');
@@ -1669,11 +1948,12 @@ async function modelTestOne(id,row){
   badge.innerHTML='<span class="status"><i></i>Testing…</span>';
   lat.textContent='-';reply.textContent='';
   const start=performance.now();
+  const accountId=$('modelTestAccount')?.value||'';
   try{
-    const d=await api('/api/admin/models/test',{method:'POST',body:JSON.stringify({model:id})});
+    const d=await api('/api/admin/models/test',{method:'POST',body:JSON.stringify({model:id, account_id:accountId})});
     const ms=Math.round(performance.now()-start);
     const content=d.reply||'（空回复）';
-    badge.innerHTML='<span class="status online"><i></i>Healthy</span>';
+    badge.innerHTML='<span class="status online"><i></i>'+translateText('Healthy')+'</span>';
     lat.textContent=ms+' ms';
     reply.textContent=String(content).slice(0,80);
   }catch(e){

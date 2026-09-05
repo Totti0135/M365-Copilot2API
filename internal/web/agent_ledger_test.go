@@ -87,6 +87,47 @@ func TestFilterCompletedCallsDeduplicatesCurrentBatch(t *testing.T) {
 	}
 }
 
+// A repeated but *successful* call must not trip the stuck-loop guard: agents
+// legitimately re-read files or poll a status without it being a runaway loop.
+// This is the false-positive that produced spurious 409 tool_round_limit
+// responses before the threshold was raised and gated on failure.
+func TestAgentLedgerSuccessfulRepeatsDoNotTripStuckLoop(t *testing.T) {
+	var msgs []oaiMsg
+	for i := 0; i < 4; i++ {
+		id := fmt.Sprintf("c%d", i)
+		msgs = append(msgs,
+			oaiMsg{Role: "assistant", ToolCalls: []map[string]any{{"id": id, "type": "function", "function": map[string]any{"name": "read_file", "arguments": "{\"path\":\"a.go\"}"}}}},
+			oaiMsg{Role: "tool", ToolCallID: id, Content: "package main"},
+		)
+	}
+	l := buildAgentLedger(msgs)
+	if l.StuckLoop {
+		t.Fatalf("successful repeats must not be a stuck loop: %+v", l)
+	}
+	if err := l.CanContinue(16); err != nil {
+		t.Fatalf("successful repeats blocked: %v", err)
+	}
+}
+
+// Repeated *failing* calls are a genuine stuck loop and must be cut off.
+func TestAgentLedgerRepeatedFailureTripsStuckLoop(t *testing.T) {
+	var msgs []oaiMsg
+	for i := 0; i < 3; i++ {
+		id := fmt.Sprintf("c%d", i)
+		msgs = append(msgs,
+			oaiMsg{Role: "assistant", ToolCalls: []map[string]any{{"id": id, "type": "function", "function": map[string]any{"name": "run", "arguments": "{\"cmd\":\"build\"}"}}}},
+			oaiMsg{Role: "tool", ToolCallID: id, Content: "exit code 1: failed"},
+		)
+	}
+	l := buildAgentLedger(msgs)
+	if !l.StuckLoop {
+		t.Fatalf("3 identical failures should be a stuck loop: %+v", l)
+	}
+	if err := l.CanContinue(16); err == nil {
+		t.Fatal("expected stuck loop / repeated failure error")
+	}
+}
+
 func TestActiveMessagesIgnoresOlderToolHistory(t *testing.T) {
 	var msgs []oaiMsg
 	for i := 0; i < 20; i++ {

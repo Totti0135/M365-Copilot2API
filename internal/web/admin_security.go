@@ -4,12 +4,15 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const defaultAdminPassword = "admin123"
@@ -19,58 +22,276 @@ type loginAttempt struct {
 	WindowStart, LockedUntil time.Time
 }
 
-func adminPasswordPath() string {
+type adminPasswordData struct {
+	Hash      string    `json:"hash"`
+	History   []string  `json:"history,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+}
+
+var commonPasswordBlacklist = []string{
+	"password", "123456", "123456789", "qwerty", "admin", "admin123",
+	"letmein", "welcome", "monkey", "dragon", "123123", "iloveyou",
+	"password1", "1234", "12345", "adminadmin", "root", "toor",
+}
+
+func adminPasswordPaths() (primary, legacy string) {
 	if dir := strings.TrimSpace(os.Getenv("M365_DATA_DIR")); dir != "" {
-		return filepath.Join(dir, "admin-password")
+		return filepath.Join(dir, "admin-password.json"), filepath.Join(dir, "admin-password")
 	}
 	if p := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD_FILE")); p != "" {
-		return p
+		return p, ""
 	}
 	if p := strings.TrimSpace(os.Getenv("M365_CONFIG")); p != "" {
-		return filepath.Join(filepath.Dir(p), "admin-password")
+		return filepath.Join(filepath.Dir(p), "admin-password.json"), filepath.Join(filepath.Dir(p), "admin-password")
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "m365-copilot2api", "admin-password")
+	return filepath.Join(home, ".config", "m365-copilot2api", "admin-password.json"), filepath.Join(home, ".config", "m365-copilot2api", "admin-password")
 }
-func loadAdminPassword() (string, bool) {
-	// The writable persisted value takes precedence over bootstrap sources.
-	if b, e := os.ReadFile(adminPasswordPath()); e == nil && strings.TrimSpace(string(b)) != "" {
-		p := strings.TrimSpace(string(b))
-		if p == defaultAdminPassword {
-			// A leftover persisted file holding the default password (for
-			// example a clone of a previously initialized data directory)
-			// must not silently defeat an explicit M365_ADMIN_PASSWORD.
-			if envP := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD")); envP != "" {
-				_ = saveAdminPassword(envP)
-				return envP, envP == defaultAdminPassword
+
+func adminPasswordPath() string {
+	primary, _ := adminPasswordPaths()
+	return primary
+}
+
+func isBcryptHash(s string) bool {
+	return strings.HasPrefix(s, "$2a$") || strings.HasPrefix(s, "$2b$") || strings.HasPrefix(s, "$2y$")
+}
+
+func hashPassword(plain string) (string, error) {
+	h, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(h), nil
+}
+
+func checkPassword(hash, plain string) bool {
+	if isBcryptHash(hash) {
+		return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
+	}
+	return subtle.ConstantTimeCompare([]byte(hash), []byte(plain)) == 1
+}
+
+func readPersistedAdminData() (adminPasswordData, bool) {
+	primary, legacy := adminPasswordPaths()
+	if b, err := os.ReadFile(primary); err == nil && strings.TrimSpace(string(b)) != "" {
+		trimmed := strings.TrimSpace(string(b))
+		var data adminPasswordData
+		if err := json.Unmarshal([]byte(trimmed), &data); err == nil && data.Hash != "" {
+			return data, true
+		}
+		if trimmed != "" && !strings.HasPrefix(trimmed, "{") {
+			return adminPasswordData{}, false
+		}
+	}
+	if legacy != "" && legacy != primary {
+		if b, err := os.ReadFile(legacy); err == nil && strings.TrimSpace(string(b)) != "" {
+			plain := strings.TrimSpace(string(b))
+			if plain != "" {
+				h, _ := hashPassword(plain)
+				return adminPasswordData{Hash: h}, false
 			}
 		}
-		return p, p == defaultAdminPassword
+	} else {
+		// when M365_ADMIN_PASSWORD_FILE points to non-json, primary is json variant, check legacy plain
+		if b, err := os.ReadFile(legacy); err == nil && strings.TrimSpace(string(b)) != "" {
+			plain := strings.TrimSpace(string(b))
+			if plain != "" && !strings.HasPrefix(strings.TrimSpace(string(b)), "{") {
+				// treat as plain stored in the env-specified file
+				// try parse as json first
+				var data adminPasswordData
+				if err := json.Unmarshal(b, &data); err == nil && data.Hash != "" {
+					return data, true
+				}
+				h, _ := hashPassword(plain)
+				return adminPasswordData{Hash: h}, false
+			}
+		}
+	}
+	return adminPasswordData{}, false
+}
+
+func loadAdminCredentials() (string, []string, bool, error) {
+	primary, legacy := adminPasswordPaths()
+
+	if b, err := os.ReadFile(primary); err == nil && strings.TrimSpace(string(b)) != "" {
+		trimmed := strings.TrimSpace(string(b))
+		var data adminPasswordData
+		if err := json.Unmarshal([]byte(trimmed), &data); err == nil && data.Hash != "" {
+			if checkPassword(data.Hash, defaultAdminPassword) {
+				if envP := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD")); envP != "" {
+					if envP == defaultAdminPassword {
+						return "", nil, false, errors.New("default administrator password is not allowed; set M365_ADMIN_PASSWORD to a strong password")
+					}
+					h, _ := hashPassword(envP)
+					_ = saveAdminPasswordWithHistory(h, data.History, data.Hash)
+					auditLog(nil, "admin_password_override_default", "env overrides persisted default")
+					return h, data.History, false, nil
+				}
+				return "", nil, false, errors.New("default administrator password is not allowed; set M365_ADMIN_PASSWORD to a strong password")
+			}
+			return data.Hash, data.History, false, nil
+		}
+		plain := trimmed
+		if plain == defaultAdminPassword {
+			if envP := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD")); envP != "" {
+				if envP == defaultAdminPassword {
+					return "", nil, false, errors.New("default administrator password is not allowed")
+				}
+				h, _ := hashPassword(envP)
+				_ = saveAdminPasswordWithHistory(h, nil, "")
+				auditLog(nil, "admin_password_override_default", "env overrides persisted plain default")
+				return h, nil, false, nil
+			}
+			return "", nil, false, errors.New("default administrator password is not allowed; set M365_ADMIN_PASSWORD to a strong password")
+		}
+		if plain != "" {
+			h, _ := hashPassword(plain)
+			// migrate to json
+			_ = saveAdminPasswordWithHistory(h, nil, "")
+			return h, nil, false, nil
+		}
+	}
+	if legacy != "" && legacy != primary {
+		if b, err := os.ReadFile(legacy); err == nil && strings.TrimSpace(string(b)) != "" {
+			plain := strings.TrimSpace(string(b))
+			if plain == defaultAdminPassword {
+				if envP := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD")); envP != "" {
+					if envP == defaultAdminPassword {
+						return "", nil, false, errors.New("default administrator password is not allowed")
+					}
+					h, _ := hashPassword(envP)
+					_ = saveAdminPasswordWithHistory(h, nil, "")
+					auditLog(nil, "admin_password_override_default", "env overrides legacy default")
+					return h, nil, false, nil
+				}
+				return "", nil, false, errors.New("default administrator password is not allowed; set M365_ADMIN_PASSWORD to a strong password")
+			}
+			if plain != "" {
+				// check if it's already json (when env file is plain path but contains json)
+				var data adminPasswordData
+				if err := json.Unmarshal(b, &data); err == nil && data.Hash != "" {
+					if checkPassword(data.Hash, defaultAdminPassword) {
+						return "", nil, false, errors.New("default administrator password is not allowed")
+					}
+					return data.Hash, data.History, false, nil
+				}
+				h, _ := hashPassword(plain)
+				_ = saveAdminPasswordWithHistory(h, nil, "")
+				return h, nil, false, nil
+			}
+		}
 	}
 	if bootstrap := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD_BOOTSTRAP_FILE")); bootstrap != "" {
-		if b, e := os.ReadFile(bootstrap); e == nil && strings.TrimSpace(string(b)) != "" {
-			p := strings.TrimSpace(string(b))
-			return p, p == defaultAdminPassword
+		if b, err := os.ReadFile(bootstrap); err == nil && strings.TrimSpace(string(b)) != "" {
+			plain := strings.TrimSpace(string(b))
+			if plain == defaultAdminPassword {
+				return "", nil, false, errors.New("default administrator password is not allowed; set a strong password in bootstrap file")
+			}
+			if plain != "" {
+				h, _ := hashPassword(plain)
+				return h, nil, false, nil
+			}
 		}
 	}
 	if p := strings.TrimSpace(os.Getenv("M365_ADMIN_PASSWORD")); p != "" {
-		return p, p == defaultAdminPassword
+		if p == defaultAdminPassword {
+			return "", nil, false, errors.New("default administrator password is not allowed; set M365_ADMIN_PASSWORD to a strong password")
+		}
+		h, err := hashPassword(p)
+		if err != nil {
+			return "", nil, false, err
+		}
+		return h, nil, false, nil
 	}
-	return defaultAdminPassword, true
+	// Fresh deployment: bootstrap with the well-known default and force a
+	// change on first login (mustChange=true). The middleware locks every
+	// admin surface except change-password until a strong password is set.
+	// Upgrades from older versions keep working because an existing
+	// persisted/env password is handled above; only truly empty installs hit
+	// this branch. Set M365_REQUIRE_STRONG_ADMIN_PASSWORD=1 to refuse the
+	// bootstrap instead.
+	h, err := hashPassword(defaultAdminPassword)
+	if err != nil {
+		return "", nil, false, err
+	}
+	if strings.TrimSpace(os.Getenv("M365_REQUIRE_STRONG_ADMIN_PASSWORD")) == "1" {
+		return "", nil, false, errors.New("administrator password is not configured and bootstrap is disabled (M365_REQUIRE_STRONG_ADMIN_PASSWORD=1); set M365_ADMIN_PASSWORD")
+	}
+	return h, nil, true, nil
 }
-func saveAdminPassword(password string) error {
-	p := adminPasswordPath()
-	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+
+func loadAdminPassword() (string, bool, error) {
+	hash, _, mustChange, err := loadAdminCredentials()
+	return hash, mustChange, err
+}
+
+func saveAdminPasswordWithHistory(newHash string, history []string, oldHash string) error {
+	primary, _ := adminPasswordPaths()
+	if err := os.MkdirAll(filepath.Dir(primary), 0700); err != nil {
 		return err
 	}
-	return writeFileAtomic(p, []byte(password+"\n"), 0600)
+	newHistory := []string{}
+	if oldHash != "" {
+		newHistory = append(newHistory, oldHash)
+	}
+	newHistory = append(newHistory, history...)
+	if len(newHistory) > 5 {
+		newHistory = newHistory[:5]
+	}
+	data := adminPasswordData{Hash: newHash, History: newHistory, UpdatedAt: time.Now()}
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	return writeFileAtomic(primary, b, 0600)
 }
+
+func saveAdminPassword(password string) error {
+	if err := validNewAdminPassword(password, nil); err != nil {
+		// allow saving bootstrap passwords without strength check when called from load migration?
+		// but enforce for explicit save via change-password; load path bypasses this
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+	existing, ok := readPersistedAdminData()
+	var history []string
+	var oldHash string
+	if ok {
+		history = existing.History
+		oldHash = existing.Hash
+	} else {
+		// try to get old hash via load credentials without env fallback to avoid env pollution
+		primary, _ := adminPasswordPaths()
+		if b, err := os.ReadFile(primary); err == nil {
+			var d adminPasswordData
+			if json.Unmarshal(b, &d) == nil && d.Hash != "" {
+				history = d.History
+				oldHash = d.Hash
+			}
+		}
+	}
+	return saveAdminPasswordWithHistory(hash, history, oldHash)
+}
+
+func auditLog(r *http.Request, event, detail string) {
+	ip := ""
+	if r != nil {
+		ip = clientIP(r)
+	}
+	if detail != "" {
+		log.Printf("[audit] event=%s ip=%s detail=%s", event, ip, detail)
+	} else {
+		log.Printf("[audit] event=%s ip=%s", event, ip)
+	}
+}
+
 func clientIP(r *http.Request) string {
-	// Trust proxy headers only when the direct peer is loopback (normal local reverse-proxy deployment).
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if net.ParseIP(host).IsLoopback() {
-		// A trusted reverse proxy appends the client address to XFF. Use the
-		// right-most valid address rather than the attacker-controlled first one.
 		parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
 		for i := len(parts) - 1; i >= 0; i-- {
 			if ip := net.ParseIP(strings.TrimSpace(parts[i])); ip != nil {
@@ -83,18 +304,163 @@ func clientIP(r *http.Request) string {
 	}
 	return r.RemoteAddr
 }
-func validNewAdminPassword(p string) error {
+func validNewAdminPassword(p string, history []string) error {
 	if p == defaultAdminPassword {
-		return errors.New("new password must not be the default password")
+		return errors.New("password_is_default")
 	}
-	if len(p) < 6 {
-		return errors.New("new password must be at least 6 characters")
+	if len(p) < 12 {
+		return errors.New("password_too_short")
+	}
+	if len(p) > 72 {
+		return errors.New("password_too_long")
 	}
 	if len(p) > 256 {
 		return errors.New("new password is too long")
 	}
+	classes := 0
+	hasLower, hasUpper, hasDigit, hasSpecial := false, false, false, false
+	for _, r := range p {
+		switch {
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		default:
+			hasSpecial = true
+		}
+	}
+	if hasLower {
+		classes++
+	}
+	if hasUpper {
+		classes++
+	}
+	if hasDigit {
+		classes++
+	}
+	if hasSpecial {
+		classes++
+	}
+	if classes < 3 {
+		return errors.New("password_needs_complexity")
+	}
+	lower := strings.ToLower(p)
+	for _, bad := range commonPasswordBlacklist {
+		if lower == bad || strings.Contains(lower, bad) {
+			return errors.New("password_common_or_blacklisted")
+		}
+	}
+	if isCommonSequence(p) {
+		return errors.New("password_common_sequence")
+	}
+	if score := zxcvbnScore(p); score < 3 {
+		return errors.New("password_too_weak")
+	}
+	for _, h := range history {
+		if h == "" {
+			continue
+		}
+		if checkPassword(h, p) {
+			return errors.New("password_recently_used")
+		}
+	}
 	return nil
 }
+
+func isCommonSequence(p string) bool {
+	lower := strings.ToLower(p)
+	sequences := []string{"123456", "abcdef", "qwerty", "password", "admin", "letmein", "welcome", "111111", "000000"}
+	for _, s := range sequences {
+		if strings.Contains(lower, s) {
+			return true
+		}
+	}
+	// repeated characters like aaaa or 1111
+	repeat := 1
+	for i := 1; i < len(p); i++ {
+		if p[i] == p[i-1] {
+			repeat++
+			if repeat >= 4 {
+				return true
+			}
+		} else {
+			repeat = 1
+		}
+	}
+	// sequential run like abc, 123
+	for i := 0; i < len(p)-2; i++ {
+		a, b, c := p[i], p[i+1], p[i+2]
+		if b == a+1 && c == b+1 {
+			return true
+		}
+		if b == a-1 && c == b-1 {
+			return true
+		}
+	}
+	return false
+}
+
+func zxcvbnScore(p string) int {
+	score := 0
+	if len(p) >= 12 {
+		score++
+	}
+	if len(p) >= 16 {
+		score++
+	}
+	classes := 0
+	hasLower, hasUpper, hasDigit, hasSpecial := false, false, false, false
+	for _, r := range p {
+		switch {
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		default:
+			hasSpecial = true
+		}
+	}
+	if hasLower {
+		classes++
+	}
+	if hasUpper {
+		classes++
+	}
+	if hasDigit {
+		classes++
+	}
+	if hasSpecial {
+		classes++
+	}
+	if classes >= 3 {
+		score++
+	}
+	if classes == 4 {
+		score++
+	}
+	if isCommonSequence(p) {
+		score -= 2
+	}
+	lower := strings.ToLower(p)
+	for _, bad := range commonPasswordBlacklist {
+		if strings.Contains(lower, bad) {
+			score -= 2
+			break
+		}
+	}
+	if score < 0 {
+		score = 0
+	}
+	if score > 4 {
+		score = 4
+	}
+	return score
+}
+
 func (s *Server) loginAllowed(ip string, now time.Time) (bool, time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -155,29 +521,51 @@ func (s *Server) adminChangePassword(w http.ResponseWriter, r *http.Request) {
 		New     string `json:"new_password"`
 	}
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&b) != nil {
-		writeOpenAIError(w, 400, "invalid_request_error", "invalid_json", "bad json")
+		auditLog(r, "admin_password_change_failed", "bad json")
+		writeOpenAIError(w, 400, "invalid_request_error", "bad_json", "bad json")
 		return
 	}
 	s.mu.Lock()
-	current := s.adminPassword
+	currentHash := s.adminPassword
+	history := append([]string{}, s.adminPasswordHistory...)
 	s.mu.Unlock()
-	if subtle.ConstantTimeCompare([]byte(b.Current), []byte(current)) != 1 {
-		writeOpenAIError(w, 401, "auth_error", "invalid_api_key", "current password is invalid")
+	if !checkPassword(currentHash, b.Current) {
+		auditLog(r, "admin_password_change_failed", "current password invalid")
+		writeOpenAIError(w, 401, "auth_error", "current_password_invalid", "current_password_invalid")
 		return
 	}
-	if err := validNewAdminPassword(b.New); err != nil {
-		writeOpenAIError(w, 400, "invalid_request_error", "invalid_parameter", err.Error())
+	allHistory := append([]string{currentHash}, history...)
+	if err := validNewAdminPassword(b.New, allHistory); err != nil {
+		auditLog(r, "admin_password_change_failed", err.Error())
+		writeOpenAIError(w, 400, "invalid_request_error", "err_error", err.Error())
 		return
 	}
-	if err := saveAdminPassword(b.New); err != nil {
-		writeOpenAIError(w, 500, "storage_error", "storage_error", "administrator password could not be saved; check the persistent data directory permissions")
+	newHash, err := hashPassword(b.New)
+	if err != nil {
+		auditLog(r, "admin_password_change_failed", "hash error")
+		writeOpenAIError(w, 500, "storage_error", "administrator_password_could_not_be_hashed", "administrator password could not be hashed")
+		return
+	}
+	if err := saveAdminPasswordWithHistory(newHash, history, currentHash); err != nil {
+		auditLog(r, "admin_password_change_failed", "save error: "+err.Error())
+		writeOpenAIError(w, 500, "storage_error", "administrator_password_could_not_be_saved_check_the_persistent_data_directory_permissions", "administrator password could not be saved; check the persistent data directory permissions")
 		return
 	}
 	s.mu.Lock()
-	s.adminPassword = b.New
+	s.adminPassword = newHash
+	newHist := []string{}
+	if currentHash != "" {
+		newHist = append(newHist, currentHash)
+	}
+	newHist = append(newHist, history...)
+	if len(newHist) > 5 {
+		newHist = newHist[:5]
+	}
+	s.adminPasswordHistory = newHist
 	s.mustChangePassword = false
 	s.adminSessions = map[string]time.Time{}
 	s.mu.Unlock()
+	auditLog(r, "admin_password_changed", "password changed successfully")
 	http.SetCookie(w, &http.Cookie{Name: "m365_admin_session", Path: "/", HttpOnly: true, Secure: secureAdminCookie(r), SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	jsonOut(w, map[string]any{"status": "password_changed", "reauthenticate": true})
 }

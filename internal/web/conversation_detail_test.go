@@ -34,6 +34,7 @@ func TestConversationListAndDetailUseCompleteLocalHistory(t *testing.T) {
 	defer func() { m365CloudClient = oldCloudClient }()
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	req.Header.Set("Authorization", "Bearer detail-key")
 	req.Header.Set(sessionHeaderName, "session-detail")
 	body := &oaiReq{Messages: []oaiMsg{
 		{Role: "user", Content: "show the complete answer"},
@@ -48,7 +49,9 @@ func TestConversationListAndDetailUseCompleteLocalHistory(t *testing.T) {
 		&oaiReq{Messages: []oaiMsg{{Role: "user", Content: "anonymous"}}}, "", anonReq)
 
 	listRecorder := httptest.NewRecorder()
-	s.handleM365Conversations(listRecorder, httptest.NewRequest(http.MethodGet, "/api/m365/conversations", nil))
+	listRequest := httptest.NewRequest(http.MethodGet, "/api/m365/conversations", nil)
+	listRequest.Header.Set("Authorization", "Bearer detail-key")
+	s.handleM365Conversations(listRecorder, listRequest)
 	if listRecorder.Code != http.StatusOK {
 		t.Fatalf("list status=%d body=%s", listRecorder.Code, listRecorder.Body.String())
 	}
@@ -77,7 +80,9 @@ func TestConversationListAndDetailUseCompleteLocalHistory(t *testing.T) {
 	}
 
 	detailRecorder := httptest.NewRecorder()
-	s.handleM365ConversationDetail(detailRecorder, httptest.NewRequest(http.MethodGet, "/api/m365/conversations/detail?id=conversation-detail", nil))
+	detailRequest := httptest.NewRequest(http.MethodGet, "/api/m365/conversations/detail?id=conversation-detail", nil)
+	detailRequest.Header.Set("Authorization", "Bearer detail-key")
+	s.handleM365ConversationDetail(detailRecorder, detailRequest)
 	if detailRecorder.Code != http.StatusOK {
 		t.Fatalf("detail status=%d body=%s", detailRecorder.Code, detailRecorder.Body.String())
 	}

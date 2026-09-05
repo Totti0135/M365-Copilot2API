@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,18 +19,25 @@ func TestEnvPasswordOverridesLeftoverDefaultPersistedFile(t *testing.T) {
 	t.Setenv("M365_DATA_DIR", "")
 	t.Setenv("M365_ADMIN_PASSWORD_FILE", persisted)
 	t.Setenv("M365_ADMIN_PASSWORD_BOOTSTRAP_FILE", "")
-	t.Setenv("M365_ADMIN_PASSWORD", "custom-password")
+	t.Setenv("M365_ADMIN_PASSWORD", "Custom!Str0ng#2024")
 
-	got, mustChange := loadAdminPassword()
-	if got != "custom-password" || mustChange {
-		t.Fatalf("loadAdminPassword()=(%q,%v)", got, mustChange)
+	got, _, err := loadAdminPassword()
+	if err != nil {
+		t.Fatalf("loadAdminPassword error: %v", err)
+	}
+	if !checkPassword(got, "Custom!Str0ng#2024") {
+		t.Fatalf("loadAdminPassword hash does not match env password")
 	}
 	b, err := os.ReadFile(persisted)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b) != "custom-password\n" {
-		t.Fatalf("env password not persisted: %q", b)
+	var data adminPasswordData
+	if err := json.Unmarshal(b, &data); err != nil {
+		t.Fatalf("persisted file not json: %v body=%q", err, string(b))
+	}
+	if !checkPassword(data.Hash, "Custom!Str0ng#2024") {
+		t.Fatalf("env password not persisted as hash")
 	}
 }
 
@@ -37,25 +45,34 @@ func TestBootstrapPasswordUsesWritablePersistentPath(t *testing.T) {
 	dir := t.TempDir()
 	persisted := filepath.Join(dir, "data", "admin-password")
 	bootstrap := filepath.Join(dir, "secret")
-	if err := os.WriteFile(bootstrap, []byte("bootstrap-password\n"), 0400); err != nil {
+	if err := os.WriteFile(bootstrap, []byte("Bootstrap!Str0ng#2024\n"), 0400); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("M365_ADMIN_PASSWORD_FILE", persisted)
 	t.Setenv("M365_ADMIN_PASSWORD_BOOTSTRAP_FILE", bootstrap)
 	t.Setenv("M365_ADMIN_PASSWORD", "")
+	t.Setenv("M365_DATA_DIR", "")
 
-	got, mustChange := loadAdminPassword()
-	if got != "bootstrap-password" || mustChange {
-		t.Fatalf("loadAdminPassword()=(%q,%v)", got, mustChange)
+	got, _, err := loadAdminPassword()
+	if err != nil {
+		t.Fatalf("loadAdminPassword error: %v", err)
 	}
-	if err := saveAdminPassword("a-new-password-123"); err != nil {
+	if !checkPassword(got, "Bootstrap!Str0ng#2024") {
+		t.Fatalf("loadAdminPassword hash mismatch")
+	}
+	newPw := "N3w!Bootstrap#2025X"
+	if err := saveAdminPassword(newPw); err != nil {
 		t.Fatal(err)
 	}
 	b, err := os.ReadFile(persisted)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b) != "a-new-password-123\n" {
-		t.Fatalf("persisted password=%q", b)
+	var data adminPasswordData
+	if err := json.Unmarshal(b, &data); err != nil {
+		t.Fatalf("persisted not json: %v", err)
+	}
+	if !checkPassword(data.Hash, newPw) {
+		t.Fatalf("persisted hash mismatch")
 	}
 }

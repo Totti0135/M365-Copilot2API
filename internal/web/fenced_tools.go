@@ -8,6 +8,18 @@ import (
 
 var fencedToolCall = regexp.MustCompile("(?s)```([A-Za-z0-9_-]+)\\s*\\n(.*?)\\n```")
 
+// illustrativeProseLimit is the amount of natural-language text (outside any
+// fenced block) beyond which a bare ```bash/sh/...``` block is treated as an
+// illustrative example rather than an execution request. A genuine "run this"
+// answer from the upstream model carries little surrounding prose; a normal
+// chat answer that merely quotes a shell command carries a lot. Without this
+// guard an explanatory answer containing a code sample was converted into a
+// tool call and its entire prose body was discarded (content:nil), so the
+// client saw a truncated / empty reply while the upstream conversation held
+// the full text. The limit is measured in runes so CJK answers (which are
+// byte-dense but rune-compact) are judged fairly.
+const illustrativeProseLimit = 120
+
 // declaredShell returns the shell-ish tool name the client actually
 // declared (bash/sh/shell/powershell/cmd), or "" if none. Forcing an
 // undeclared bash call on clients that don't support it (issue #12) makes
@@ -21,9 +33,21 @@ func declaredShell(allowed map[string]bool) string {
 	return ""
 }
 
+// proseOutsideFences returns the length in runes of the text left after all
+// fenced code blocks are removed. It measures how much explanatory prose
+// surrounds the code, which distinguishes an example from an execution intent.
+func proseOutsideFences(text string) int {
+	stripped := fencedToolCall.ReplaceAllString(text, "")
+	return len([]rune(strings.TrimSpace(stripped)))
+}
+
 func fencedToolCalls(text string, tools []map[string]any, choice any) []detectedToolCall {
 	allowed := allowedToolNames(tools)
 	shell := declaredShell(allowed)
+	// A shell code block wrapped in a long prose answer is an illustration, not
+	// a command to run. Explicit ```toolname\n{json}``` blocks (where the fence
+	// language is the declared tool name) stay unambiguous and are unaffected.
+	illustrative := proseOutsideFences(text) > illustrativeProseLimit
 	var out []detectedToolCall
 	for _, m := range fencedToolCall.FindAllStringSubmatch(text, -1) {
 		name := m[1]
@@ -33,6 +57,13 @@ func fencedToolCalls(text string, tools []map[string]any, choice any) []detected
 		// Auto-convert bash/shell code blocks to tool calls, but only when
 		// the client declared the tool.
 		if name == "bash" || name == "sh" || name == "shell" || name == "powershell" || name == "cmd" {
+			// A shell block embedded in a long explanatory answer is a quoted
+			// example, not a command to execute. Skip conversion so the prose
+			// answer is delivered intact instead of being replaced by an
+			// (unwanted) tool call with content:nil.
+			if illustrative {
+				continue
+			}
 			converted := name
 			if !allowed[name] {
 				if shell == "" {
@@ -64,7 +95,7 @@ func fencedToolCalls(text string, tools []map[string]any, choice any) []detected
 		out = append(out, detectedToolCall{ID: callID(name, string(b), len(out)), Type: toolType(name, tools), Name: name, Arguments: b})
 	}
 	// Also check for plain JSON objects with a "command" field (not in fenced blocks)
-	if len(out) == 0 && shell != "" {
+	if len(out) == 0 && shell != "" && !illustrative {
 		for i := 0; i < len(text); i++ {
 			if text[i] != '{' {
 				continue

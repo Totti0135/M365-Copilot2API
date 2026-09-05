@@ -14,10 +14,10 @@ type Tool struct {
 }
 
 type Resource struct {
-	URI         string         `json:"uri"`
-	Name        string         `json:"name"`
-	Description string         `json:"description,omitempty"`
-	MIMEType    string         `json:"mimeType,omitempty"`
+	URI         string `json:"uri"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MIMEType    string `json:"mimeType,omitempty"`
 }
 
 type ResourceContent struct {

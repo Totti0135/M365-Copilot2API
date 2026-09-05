@@ -1,6 +1,36 @@
 package web
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"testing"
+)
+
+func TestAPIKeyAccountBindingsPersistAndResolve(t *testing.T) {
+	path := t.TempDir() + "/api-keys.json"
+	store := newAPIKeyStore(path)
+	record, raw, err := store.create("bound")
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := store.update(record.ID, "", nil, []string{"account-1", "account-2"})
+	if err != nil || !updated {
+		t.Fatalf("update=%v err=%v", updated, err)
+	}
+
+	reloaded := newAPIKeyStore(path)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, reloaded); err != nil {
+		t.Fatal(err)
+	}
+	got := reloaded.accountIDs(raw)
+	if len(got) != 2 || got[0] != "account-1" || got[1] != "account-2" {
+		t.Fatalf("accountIDs=%v", got)
+	}
+}
 
 func TestAPIKeyCreateRollsBackWhenPersistenceFails(t *testing.T) {
 	store := newAPIKeyStore(t.TempDir())

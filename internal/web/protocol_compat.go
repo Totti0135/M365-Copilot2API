@@ -16,6 +16,7 @@ type responsesRequest struct {
 	Input              any              `json:"input"`
 	Tools              []map[string]any `json:"tools,omitempty"`
 	ToolChoice         any              `json:"tool_choice,omitempty"`
+	ParallelToolCalls  *bool            `json:"parallel_tool_calls,omitempty"`
 	Stream             bool             `json:"stream,omitempty"`
 	User               string           `json:"user,omitempty"`
 	Reasoning          *reasoningConfig `json:"reasoning,omitempty"`
@@ -25,12 +26,23 @@ type responsesRequest struct {
 	Temperature        *float64         `json:"temperature,omitempty"`
 	TopP               *float64         `json:"top_p,omitempty"`
 	MaxOutputTokens    *int             `json:"max_output_tokens,omitempty"`
+	Include            []string         `json:"include,omitempty"`
+	Text               map[string]any   `json:"text,omitempty"`
+	ServiceTier        string           `json:"service_tier,omitempty"`
+	ContextManagement  any              `json:"context_management,omitempty"`
 }
 
-const customExecWorkspaceInstruction = `You are operating through the caller's local OpenCode execution bridge. Never use, request, or mention Microsoft 365/Copilot native tools. The only permitted execution tool is the caller-provided custom exec tool. The executor already starts in the caller-selected project workspace. Use relative paths only; never guess, cd to, or write under /root, /workspace, /tmp, or any other absolute project path. Inspect pwd and ls before changes. Do not create files outside the current working directory. Never claim a file was created, modified, or verified until custom exec returns a successful result. After every execution, use custom exec to verify the result.`
-
 func (r responsesRequest) openAI() (oaiReq, error) {
-	o := oaiReq{Model: r.Model, AccountID: r.AccountID, Stream: r.Stream, ToolChoice: r.ToolChoice, User: r.User}
+	o := oaiReq{Model: r.Model, AccountID: r.AccountID, Stream: r.Stream, ToolChoice: r.ToolChoice, ParallelToolCalls: r.ParallelToolCalls, Reasoning: r.Reasoning, User: r.User}
+	if len(r.Text) != 0 {
+		return o, fmt.Errorf("unsupported_parameter: text")
+	}
+	if r.ServiceTier != "" {
+		return o, fmt.Errorf("unsupported_parameter: service_tier")
+	}
+	if r.ContextManagement != nil {
+		return o, fmt.Errorf("unsupported_parameter: context_management")
+	}
 	if r.Temperature != nil {
 		o.Temperature = r.Temperature
 	}
@@ -47,6 +59,7 @@ func (r responsesRequest) openAI() (oaiReq, error) {
 		o.Reasoning = r.Reasoning
 		o.ReasoningEffort = r.Reasoning.Effort
 	}
+	extraTools := []map[string]any{}
 	switch v := r.Input.(type) {
 	case string:
 		if v == "" {
@@ -61,6 +74,19 @@ func (r responsesRequest) openAI() (oaiReq, error) {
 			}
 			typ, _ := m["type"].(string)
 			switch typ {
+			case "additional_tools":
+				// Codex delivers its tool declarations inside the input array as
+				// {"type":"additional_tools","role":"developer","tools":[...]} instead
+				// of the top-level tools field. Merge them into the declaration set
+				// processed below so ChatHub learns about the available tools.
+				if tl, ok := m["tools"].([]any); ok {
+					for _, rt := range tl {
+						if t, ok := rt.(map[string]any); ok {
+							extraTools = append(extraTools, t)
+						}
+					}
+				}
+				continue
 			case "function_call_progress":
 				// Progress is deliberately not converted into an assistant/tool
 				// message. It is transport metadata from a long-running client-side
@@ -71,10 +97,16 @@ func (r responsesRequest) openAI() (oaiReq, error) {
 				continue
 			case "function_call_output":
 				id, _ := m["call_id"].(string)
-				o.Messages = append(o.Messages, oaiMsg{Role: "tool", ToolCallID: id, Content: m["output"]})
+				if strings.TrimSpace(id) == "" {
+					return o, fmt.Errorf("function_call_output missing call_id")
+				}
+				o.Messages = append(o.Messages, oaiMsg{Role: "tool", ToolCallID: strings.TrimSpace(id), Content: m["output"]})
 			case "custom_tool_call_output":
 				id, _ := m["call_id"].(string)
-				o.Messages = append(o.Messages, oaiMsg{Role: "tool", ToolCallID: id, Content: m["output"]})
+				if strings.TrimSpace(id) == "" {
+					return o, fmt.Errorf("custom_tool_call_output missing call_id")
+				}
+				o.Messages = append(o.Messages, oaiMsg{Role: "tool", ToolCallID: strings.TrimSpace(id), Content: m["output"]})
 			case "function_call":
 				id, _ := m["call_id"].(string)
 				name, _ := m["name"].(string)
@@ -109,36 +141,20 @@ func (r responsesRequest) openAI() (oaiReq, error) {
 	default:
 		return o, fmt.Errorf("input must be string or array")
 	}
-	hasCustomExec := false
-	for _, t := range r.Tools {
-		typ, _ := t["type"].(string)
-		name, _ := t["name"].(string)
-		if typ == "custom" && name == "exec" {
-			hasCustomExec = true
-			break
-		}
+	if len(extraTools) > 0 {
+		r.Tools = append(extraTools, r.Tools...)
 	}
 	for _, t := range r.Tools {
 		typ, _ := t["type"].(string)
 		name, _ := t["name"].(string)
-		if hasCustomExec && !(typ == "custom" && name == "exec") {
-			continue
-		}
 		f := map[string]any{"name": t["name"], "description": t["description"], "parameters": t["parameters"]}
 		if typ == "custom" && name == "exec" {
-			// ChatHub accepts JSON function arguments while Codex exec accepts a
-			// grammar-constrained raw input string. Preserve the distinction in
-			// Tool.Type and bridge the input through a single string field.
-			f["parameters"] = map[string]any{"type": "object", "properties": map[string]any{"input": map[string]any{"type": "string"}}, "required": []string{"input"}, "additionalProperties": false}
-			hasCustomExec = true
+			return o, fmt.Errorf("unsupported_parameter: tools")
 		} else if typ != "function" {
-			continue
+			return o, fmt.Errorf("unsupported_parameter: tools")
 		}
 		b, _ := json.Marshal(f)
 		o.Tools = append(o.Tools, chathub.Tool{Type: typ, Function: b})
-	}
-	if hasCustomExec {
-		o.Messages = append([]oaiMsg{{Role: "system", Content: customExecWorkspaceInstruction}}, o.Messages...)
 	}
 	return o, nil
 }
@@ -153,14 +169,14 @@ type anthropicTool struct {
 	InputSchema map[string]any `json:"input_schema"`
 }
 type anthropicRequest struct {
-	Model      string             `json:"model"`
-	System     any                `json:"system,omitempty"`
-	Messages   []anthropicMessage `json:"messages"`
-	Tools      []anthropicTool    `json:"tools,omitempty"`
-	ToolChoice any                `json:"tool_choice,omitempty"`
-	Stream     bool               `json:"stream,omitempty"`
-	MaxTokens  int                `json:"max_tokens,omitempty"`
-	StopSequences []string       `json:"stop_sequences,omitempty"`
+	Model         string             `json:"model"`
+	System        any                `json:"system,omitempty"`
+	Messages      []anthropicMessage `json:"messages"`
+	Tools         []anthropicTool    `json:"tools,omitempty"`
+	ToolChoice    any                `json:"tool_choice,omitempty"`
+	Stream        bool               `json:"stream,omitempty"`
+	MaxTokens     int                `json:"max_tokens,omitempty"`
+	StopSequences []string           `json:"stop_sequences,omitempty"`
 }
 
 func (r anthropicRequest) openAI() (oaiReq, error) {

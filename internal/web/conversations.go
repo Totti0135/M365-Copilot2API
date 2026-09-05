@@ -121,9 +121,9 @@ func (s *Server) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 	}
 	stats := cacheStats.GetStats()
 	jsonOut(w, map[string]any{
-		"object":       "cache_stats",
-		"stats":        stats,
-		"conv_cache":   s.convCache.Stats(),
+		"object":     "cache_stats",
+		"stats":      stats,
+		"conv_cache": s.convCache.Stats(),
 	})
 }
 
@@ -142,7 +142,7 @@ func (s *Server) handleM365Conversations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if m365CloudClient == nil && len(s.sessionResolver.ListSessions()) == 0 {
-		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
+		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "m365_cloud_not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
 		return
 	}
 	rows := make(map[string]map[string]any)
@@ -214,7 +214,7 @@ func (s *Server) handleM365ConversationDetail(w http.ResponseWriter, r *http.Req
 		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "invalid_parameter", "conversation id is required")
 		return
 	}
-	session, found := s.sessionResolver.GetConversation(conversationID)
+	session, found := s.sessionResolver.GetConversation(tenantFromRequest(r), conversationID)
 	if !found {
 		writeOpenAIError(w, http.StatusNotFound, "conversation_not_found", "resource_not_found", "conversation history is not available")
 		return
@@ -278,7 +278,7 @@ func (s *Server) handleM365Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if m365CloudClient == nil {
-		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
+		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "m365_cloud_not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
 		return
 	}
 	var body struct {
@@ -302,7 +302,7 @@ func (s *Server) handleM365Cleanup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if m365CloudClient == nil {
-		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
+		writeOpenAIError(w, http.StatusServiceUnavailable, "m365_not_configured", "m365_cloud_not_configured", "M365 cloud client not configured. Please add an M365 account first via PKCE authorization.")
 		return
 	}
 	var body struct {

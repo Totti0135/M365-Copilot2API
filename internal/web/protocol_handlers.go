@@ -3,6 +3,8 @@ package web
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +17,75 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// responseNamespace builds the dual isolation key tenant\x00session so a
+// tenant can never read another tenant's response, and even within the same
+// tenant two explicit sessions (X-M365-Session-Id) cannot cross-read. The
+// scheme matches session_resolver.explicitKey and userSessionStore.userKey.
+func responseNamespace(tenant, sessionID string) string { return tenant + "\x00" + sessionID }
+
+func responseSessionID(r *http.Request) string {
+	return strings.TrimSpace(r.Header.Get(sessionHeaderName))
+}
+
+func tenantHashPrefix(tenant string) string {
+	if len(tenant) >= 8 {
+		return tenant[:8]
+	}
+	return tenant
+}
+
+func extractResponsesToolOutputIDs(input any) []string {
+	arr, ok := input.([]any)
+	if !ok {
+		return nil
+	}
+	ids := make([]string, 0, len(arr))
+	for _, raw := range arr {
+		m, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		typ, _ := m["type"].(string)
+		if typ != "function_call_output" && typ != "custom_tool_call_output" {
+			continue
+		}
+		if id, _ := m["call_id"].(string); strings.TrimSpace(id) != "" {
+			ids = append(ids, strings.TrimSpace(id))
+		}
+	}
+	return ids
+}
+
+func buildRespToolCallsMap(toolCalls []map[string]any) map[string]*ToolCallRecord {
+	if len(toolCalls) == 0 {
+		return map[string]*ToolCallRecord{}
+	}
+	m := make(map[string]*ToolCallRecord, len(toolCalls))
+	for _, tc := range toolCalls {
+		id, _ := tc["id"].(string)
+		if id == "" {
+			continue
+		}
+		fn, _ := tc["function"].(map[string]any)
+		name, _ := fn["name"].(string)
+		args, _ := fn["arguments"].(string)
+		typ, _ := tc["type"].(string)
+		if typ == "" {
+			typ = "function"
+		}
+		m[id] = &ToolCallRecord{CallID: id, Name: name, Arguments: args, Type: typ}
+	}
+	return m
+}
+
+func sessionHashPrefix(s string) string {
+	if s == "" {
+		return "-"
+	}
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])[:8]
+}
 
 type pipeResponseWriter struct {
 	h      http.Header
@@ -126,24 +197,25 @@ func (s *Server) streamResponsesAdapter(w http.ResponseWriter, r *http.Request, 
 				if v, ok := tc["type"].(string); ok && v == "custom" {
 					typ = "custom"
 				}
+				callID, _ := tc["id"].(string)
+				fn, _ := tc["function"].(map[string]any)
+				name, _ := fn["name"].(string)
 				if st == nil {
 					prefix := "fc_"
-					item := map[string]any{"type": "function_call", "call_id": "", "name": "", "arguments": "", "status": "in_progress"}
+					item := map[string]any{"type": "function_call", "call_id": callID, "name": name, "arguments": "", "status": "in_progress"}
 					if typ == "custom" {
 						prefix = "ctc_"
-						item = map[string]any{"type": "custom_tool_call", "call_id": "", "name": "", "input": "", "status": "in_progress"}
+						item = map[string]any{"type": "custom_tool_call", "call_id": callID, "name": name, "input": "", "status": "in_progress"}
 					}
-					st = &tcState{ItemID: prefix + uuid.NewString(), Type: typ}
+					st = &tcState{ID: callID, Name: name, ItemID: prefix + uuid.NewString(), Type: typ}
 					calls[idx] = st
 					item["id"] = st.ItemID
 					emit("response.output_item.added", map[string]any{"type": "response.output_item.added", "output_index": idx, "item": item})
-				}
-				if v, ok := tc["id"].(string); ok {
-					st.ID = v
-				}
-				fn, _ := tc["function"].(map[string]any)
-				if v, ok := fn["name"].(string); ok {
-					st.Name += v
+				} else {
+					if callID != "" {
+						st.ID = callID
+					}
+					st.Name += name
 				}
 				if v, ok := fn["arguments"].(string); ok {
 					st.Args += v
@@ -258,24 +330,93 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 	}
 	o, err := body.openAI()
 	if err != nil {
-		writeResponsesError(w, 400, "invalid_request_error", "invalid_parameter", err.Error())
+		typ := "invalid_request_error"
+		if strings.HasPrefix(err.Error(), "unsupported_parameter:") {
+			typ = "unsupported_parameter"
+		}
+		writeResponsesError(w, 400, typ, "invalid_parameter", err.Error())
 		return
 	}
-	// Namespace the Responses conversation pool by a full-key hash rather than
-	// the 8-char display prefix, so distinct keys that share a prefix can never
-	// read each other's previous_response_id history.
+	// Dual isolation: tenant\x00session so two keys never share history and
+	// within one tenant two explicit sessions (X-M365-Session-Id) cannot
+	// cross-read. Falls back to 8-char prefix display only for legacy callers
+	// without a full-key tenant, but the bucket key is always
+	// responseNamespace(tenant, sessionID).
 	tenant := tenantFromRequest(r)
 	if tenant == "" {
-		tenant = extractAPIKey(r)
+		if prefix := extractAPIKey(r); prefix != "" {
+			h := sha256.Sum256([]byte(prefix))
+			tenant = hex.EncodeToString(h[:])
+		} else {
+			tenant = "anonymous"
+		}
 	}
+	sessionID := responseSessionID(r)
+	nsKey := responseNamespace(tenant, sessionID)
 	if body.PreviousResponseID != "" {
+		toolIDs := extractResponsesToolOutputIDs(body.Input)
 		s.responseMu.Lock()
-		prior, ok := s.responseMessages[tenant][body.PreviousResponseID]
-		messages := append([]oaiMsg(nil), prior.Messages...)
-		s.responseMu.Unlock()
-		if !ok || len(messages) == 0 {
-			writeResponsesError(w, 400, "invalid_request_error", "invalid_parameter", "unknown previous_response_id")
+		bucket := s.responseMessages[nsKey]
+		prior, ok := bucket[body.PreviousResponseID]
+		if !ok || len(prior.Messages) == 0 {
+			s.responseMu.Unlock()
+			writeResponsesError(w, 400, "invalid_request_error", "unknown_previous_response_id", "unknown previous_response_id")
 			return
+		}
+		if prior.Tenant != "" && prior.Tenant != tenant {
+			s.responseMu.Unlock()
+			writeResponsesError(w, 400, "invalid_request_error", "previous_response_id_tenant_mismatch", "previous_response_id tenant mismatch")
+			return
+		}
+		if prior.SessionID != sessionID {
+			s.responseMu.Unlock()
+			writeResponsesError(w, 400, "invalid_request_error", "previous_response_id_session_mismatch", "previous_response_id session mismatch")
+			return
+		}
+		if prior.Consumed {
+			dupVersion := prior.Version
+			s.responseMu.Unlock()
+			log.Printf("[responses-audit] tenantHash=%s session=%s previous=%s action=rejected_consumed version=%d tool_ids=%v", tenantHashPrefix(tenant), sessionHashPrefix(sessionID), body.PreviousResponseID, dupVersion, toolIDs)
+			if s.debug != nil {
+				s.debug.add(debugRecord{ID: "resp_" + uuid.NewString(), At: time.Now(), Path: "/v1/responses", Method: "POST", Status: 409, Level: "warn", Gateway: map[string]any{"previous_response_id": body.PreviousResponseID, "tenantHash": tenantHashPrefix(tenant), "session": sessionHashPrefix(sessionID), "tool_ids": toolIDs, "version": dupVersion, "action": "rejected_consumed"}})
+			}
+			writeResponsesError(w, 409, "conflict", "previous_response_id_already_consumed", "previous_response_id already consumed")
+			return
+		}
+		if len(toolIDs) > 0 {
+			if len(prior.ToolCalls) == 0 {
+				s.responseMu.Unlock()
+				writeResponsesError(w, 400, "invalid_request_error", "previous_response_id_has_no_pending_tool_calls", "previous_response_id has no pending tool calls")
+				return
+			}
+			seen := make(map[string]bool, len(toolIDs))
+			for _, id := range toolIDs {
+				if seen[id] {
+					s.responseMu.Unlock()
+					writeResponsesError(w, 400, "invalid_request_error", "duplicate_call_id_id", "duplicate call_id: "+id)
+					return
+				}
+				seen[id] = true
+				if _, ok := prior.ToolCalls[id]; !ok {
+					s.responseMu.Unlock()
+					writeResponsesError(w, 400, "invalid_request_error", "call_id_not_in_parent_pending_set_id", "call_id not in parent pending set: "+id)
+					return
+				}
+			}
+		} else if len(prior.ToolCalls) > 0 {
+			s.responseMu.Unlock()
+			writeResponsesError(w, 400, "invalid_request_error", "previous_response_id_expects_tool_outputs_for_pending_calls", "previous_response_id expects tool outputs for pending calls")
+			return
+		}
+		prior.Version++
+		prior.Consumed = true
+		messages := append([]oaiMsg(nil), prior.Messages...)
+		newVersion := prior.Version
+		parentToolCount := len(prior.ToolCalls)
+		s.responseMu.Unlock()
+		log.Printf("[responses-audit] tenantHash=%s session=%s previous=%s action=consumed version=%d tool_ids=%v parentToolCalls=%d", tenantHashPrefix(tenant), sessionHashPrefix(sessionID), body.PreviousResponseID, newVersion, toolIDs, parentToolCount)
+		if s.debug != nil {
+			s.debug.add(debugRecord{ID: "resp_" + uuid.NewString(), At: time.Now(), Path: "/v1/responses", Method: "POST", Status: 200, Level: "info", Gateway: map[string]any{"previous_response_id": body.PreviousResponseID, "tenantHash": tenantHashPrefix(tenant), "session": sessionHashPrefix(sessionID), "tool_ids": toolIDs, "version": newVersion, "parentToolCalls": parentToolCount, "action": "consumed"}})
 		}
 		o.Messages = append(messages, o.Messages...)
 	}
@@ -322,10 +463,10 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 	// Retain the normalized history so a subsequent previous_response_id can
 	// validate its function_call_output against the original tool call.
 	if _, ok := out["id"].(string); ok {
-		// Use the same public response id that writeResponsesResult exposes.
 		publicID := "resp_" + uuid.NewString()
 		out["m365_response_id"] = publicID
 		stored := append([]oaiMsg(nil), o.Messages...)
+		var storedToolCalls []map[string]any
 		if msg, _ := openAIChoice(out); msg != nil {
 			text, _ := msg["content"].(string)
 			if calls, ok := msg["tool_calls"].([]any); ok && len(calls) > 0 {
@@ -340,34 +481,38 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 					asstMsg.Content = text
 				}
 				stored = append(stored, asstMsg)
-			} else if text != "" {
-				stored = append(stored, oaiMsg{Role: "assistant", Content: text})
+				storedToolCalls = converted
+			} else {
+				if text != "" {
+					stored = append(stored, oaiMsg{Role: "assistant", Content: text})
+				}
 			}
 		}
+		toolCallsMap := buildRespToolCallsMap(storedToolCalls)
 		s.responseMu.Lock()
 		if len(s.responseMessages) >= maxResponseTenants {
-			var oldestTenant string
+			var oldestNs string
 			var oldestTime time.Time
-			for t, b := range s.responseMessages {
+			for ns, b := range s.responseMessages {
 				for _, h := range b {
-					if oldestTenant == "" || h.At.Before(oldestTime) {
-						oldestTenant = t
+					if oldestNs == "" || h.At.Before(oldestTime) {
+						oldestNs = ns
 						oldestTime = h.At
 					}
-					// Deliberate: sample only the first entry per tenant bucket as
+					// Deliberate: sample only the first entry per namespace bucket as
 					// its timestamp representative (approximate LRU) instead of
-					// scanning every message, keeping eviction O(tenants).
+					// scanning every message, keeping eviction O(namespaces).
 					break
 				}
 			}
-			if oldestTenant != "" {
-				delete(s.responseMessages, oldestTenant)
+			if oldestNs != "" {
+				delete(s.responseMessages, oldestNs)
 			}
 		}
-		bucket := s.responseMessages[tenant]
+		bucket := s.responseMessages[nsKey]
 		if bucket == nil {
-			bucket = map[string]respHistory{}
-			s.responseMessages[tenant] = bucket
+			bucket = map[string]*RespNode{}
+			s.responseMessages[nsKey] = bucket
 		}
 		for k, h := range bucket {
 			if time.Since(h.At) > time.Hour {
@@ -375,7 +520,7 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(bucket) == 0 {
-			delete(s.responseMessages, tenant)
+			delete(s.responseMessages, nsKey)
 		}
 		if len(bucket) >= maxResponsesPerTenant {
 			var oldestKey string
@@ -387,8 +532,9 @@ func (s *Server) responses(w http.ResponseWriter, r *http.Request) {
 			}
 			delete(bucket, oldestKey)
 		}
-		bucket[publicID] = respHistory{At: time.Now(), Messages: stored}
+		bucket[publicID] = &RespNode{At: time.Now(), Messages: stored, ToolCalls: toolCallsMap, Version: 1, Consumed: false, ParentID: body.PreviousResponseID, Tenant: tenant, SessionID: sessionID}
 		s.responseMu.Unlock()
+		log.Printf("[responses-audit] tenantHash=%s session=%s new=%s parent=%s toolCalls=%d version=1", tenantHashPrefix(tenant), sessionHashPrefix(sessionID), publicID, body.PreviousResponseID, len(toolCallsMap))
 	}
 	writeResponsesResult(w, firstNonEmpty(body.Model, "m365-copilot"), body.Stream, out)
 }

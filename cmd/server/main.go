@@ -32,7 +32,6 @@ func main() {
 	s.StartAutoCleanup()
 	s.StartConvCacheGC()
 	s.RefreshExpiredTokens()
-	go s.PreheatPool()
 	listen := "127.0.0.1:4141"
 	if v := os.Getenv("M365_LISTEN"); v != "" {
 		listen = v
@@ -42,7 +41,7 @@ func main() {
 		Addr:              listen,
 		Handler:           s.Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       120 * time.Second,
+		ReadTimeout:       0, // slow-clients can legitimately take minutes to upload large bodies; IdleTimeout covers inter-request staleness.
 		IdleTimeout:       120 * time.Second,
 		WriteTimeout:      0, // streaming endpoints need an open-ended write window.
 	}

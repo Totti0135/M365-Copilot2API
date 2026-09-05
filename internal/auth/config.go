@@ -9,7 +9,7 @@ const DefaultClientID = "c0ab8ce9-e9a0-42e7-b064-33d422df41f1"
 const FOCIClientID = "d3590ed6-52b3-4102-aeff-aad2292ab01c"
 const DefaultAuthority = "https://login.microsoftonline.com/common"
 const DefaultRedirectURI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
-const DefaultScope = "openid profile offline_access https://substrate.office.com/sydney/M365Chat.Read https://substrate.office.com/sydney/sydney.readwrite"
+const DefaultScope = "openid profile offline_access https://substrate.office.com/sydney/.default"
 
 func ClientID() string {
 	if v := os.Getenv("M365_BROWSER_CLIENT_ID"); v != "" {

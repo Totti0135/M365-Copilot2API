@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"m365-copilot2api/internal/auth"
 	"m365-copilot2api/internal/chathub"
 )
 
@@ -35,7 +37,14 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 			body.SessionID = firstNonEmpty(body.SessionID, v.SessionID)
 		}
 	}
-	acc, err := s.resolveAccount(body.AccountID)
+	accountIDs := s.apiKeys.accountIDs(rawAPIKey(r))
+	var acc auth.AccountToken
+	var err error
+	if len(accountIDs) > 0 {
+		acc, err = s.resolveBoundAccount(accountIDs, body.AccountID)
+	} else {
+		acc, err = s.resolveAccount(body.AccountID)
+	}
 	if err != nil {
 		writeUpstreamError(w, err)
 		return
@@ -59,18 +68,27 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		ConversationSignature: body.ConversationSignature, PreviousMessages: body.PreviousMessages, ConnectedFederatedIDs: body.ConnectedFederatedIDs,
 		FeatureFlags: s.featureFlags(),
 	})
+	if err != nil && body.AccountID == "" && body.ConversationID == "" && (IsRateLimited(err) || IsAuthFailure(err)) {
+		if next, nextErr := s.nextHealthyAccount(acc.ID, accountIDs); nextErr == nil {
+			ctx2, cancel2 := context.WithTimeout(r.Context(), time.Duration(streamSettings.ChatTimeoutSeconds)*time.Second)
+			defer cancel2()
+			res, err = s.chatWithAccount(ctx2, next.ID, chathub.Account{AccessToken: next.AccessToken, OID: next.OID, TID: next.TID}, chathub.Request{
+				Text: text, Tone: body.Tone, ConversationID: body.ConversationID, SessionID: body.SessionID, Attachments: body.Attachments,
+				LicenseType: streamSettings.LicenseType, Scenario: streamSettings.Scenario,
+				ConversationSignature: body.ConversationSignature, PreviousMessages: body.PreviousMessages, ConnectedFederatedIDs: body.ConnectedFederatedIDs,
+				FeatureFlags: s.featureFlags(),
+			})
+			if err == nil {
+				acc = next
+			}
+		}
+	}
 	if err != nil {
 		if errors.Is(err, chathub.ErrImageLimit) && s.accountPool != nil {
 			s.accountPool.MarkImageLimited(acc.ID)
 		}
-		s.accountPool.MarkFailure(acc.ID, err, s.getRateLimitCooldown())
 		writeUpstreamError(w, err)
 		return
-	}
-	s.accountPool.MarkSuccess(acc.ID)
-	if res.Throttling != nil && s.accountPool != nil {
-		s.accountPool.UpdateThrottling(acc.ID, res.Throttling)
-		s.logThrottlingWarning(acc.ID, res.Throttling)
 	}
 	if body.SessionKey != "" {
 		s.sessions.upsert(conversation{ID: body.SessionKey, AccountID: acc.ID, ConversationID: res.ConversationID, SessionID: res.SessionID, Title: text})
@@ -97,6 +115,23 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		writeOpenAIError(w, http.StatusInternalServerError, "server_error", "stream_unsupported", "stream unsupported")
 		return
 	}
+	sw := newSSEWriter(w, flusher)
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	keepaliveDone := make(chan struct{})
+	defer close(keepaliveDone)
+	go func() {
+		for {
+			select {
+			case <-keepaliveDone:
+				return
+			case <-r.Context().Done():
+				return
+			case <-ticker.C:
+				_ = sw.raw(": keepalive\n\n")
+			}
+		}
+	}()
 	for i, event := range res.Normalized {
 		payload := map[string]any{
 			"index":          i,
@@ -122,15 +157,15 @@ func (s *Server) chatStream(w http.ResponseWriter, r *http.Request) {
 		"offense": res.Offense, "scores": res.Scores, "conversationTransferToken": res.ConversationTransferToken,
 		"meteringInformation": res.MeteringInformation, "spokenText": res.SpokenText,
 		"storageMessageId": res.StorageMessageID,
-		"timestamps": res.Timestamps,
+		"timestamps":       res.Timestamps,
 	}); err != nil {
 		return
 	}
+	if res.Timestamps.RequestSent != "" {
+		_ = sw.raw(": m365-metrics " + mustJSON(res.Timestamps) + "\n\n")
+	}
 }
 
-// writeSSE emits one SSE frame, returning when the client has disconnected
-// (request context canceled) or the write fails so the handler can abort
-// instead of blocking a goroutine against a dead socket.
 func writeSSE(r *http.Request, w http.ResponseWriter, f http.Flusher, name string, value any) error {
 	if err := r.Context().Err(); err != nil {
 		return err
@@ -145,4 +180,71 @@ func writeSSE(r *http.Request, w http.ResponseWriter, f http.Flusher, name strin
 		f.Flush()
 	}
 	return nil
+}
+
+type meteringInfoItem struct {
+	MeterError string `json:"meterError"`
+	HasAccess  bool   `json:"hasAccess"`
+}
+
+type throttlingMeteringEntry struct {
+	RemainingAllowance int `json:"remainingAllowance"`
+}
+
+func ParseMetering(accountID string, items json.RawMessage) (meterError string, hasAccess bool) {
+	hasAccess = true
+	if len(items) == 0 {
+		return "", hasAccess
+	}
+	var parsed []meteringInfoItem
+	if json.Unmarshal(items, &parsed) != nil {
+		return "", hasAccess
+	}
+	for _, mi := range parsed {
+		if !mi.HasAccess {
+			hasAccess = false
+			if meterError == "" {
+				meterError = mi.MeterError
+			}
+		}
+	}
+	if meterError != "" {
+		log.Printf("[metering] account=%s meterError=%q hasAccess=%v", accountID, meterError, hasAccess)
+	}
+	return meterError, hasAccess
+}
+
+func remainingAllowances(throttling any) map[string]int {
+	remaining := map[string]int{}
+	if throttling == nil {
+		return remaining
+	}
+	b, err := json.Marshal(throttling)
+	if err != nil {
+		return remaining
+	}
+	var thr struct {
+		Metering map[string]throttlingMeteringEntry `json:"metering"`
+	}
+	if json.Unmarshal(b, &thr) != nil {
+		return remaining
+	}
+	for k, v := range thr.Metering {
+		remaining[k] = v.RemainingAllowance
+	}
+	return remaining
+}
+
+func applyMeteringCooldown(pool *accountHealth, accountID string, meterError string) {
+	if pool == nil || accountID == "" || meterError == "" {
+		return
+	}
+	switch meterError {
+	case "ImageGenInsufficientTokensThrottled":
+		pool.MarkImageGenTokensThrottled(accountID)
+		log.Printf("[metering] account=%s imageGenCooldownUntil=next_midnight_utc", accountID)
+	case "ImageGenSystemCapacityThrottled":
+		pool.MarkImageGenSystemThrottled(accountID)
+		log.Printf("[metering] account=%s imageGenSystemCooldown=30m", accountID)
+	}
 }

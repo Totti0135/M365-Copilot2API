@@ -31,5 +31,6 @@ func AuthorizationURL(endpoint, clientID, redirect, state, challenge, scope stri
 	q.Set("state", state)
 	q.Set("code_challenge", challenge)
 	q.Set("code_challenge_method", "S256")
+	q.Set("prompt", "select_account")
 	return fmt.Sprintf("%s?%s", endpoint, q.Encode())
 }

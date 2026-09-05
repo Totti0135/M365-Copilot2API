@@ -18,6 +18,7 @@ type apiKeyRecord struct {
 	Prefix     string     `json:"prefix"`
 	Hash       string     `json:"hash"`
 	Raw        string     `json:"raw,omitempty"`
+	AccountIDs []string   `json:"accountIds,omitempty"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
 	Revoked    bool       `json:"revoked"`
@@ -78,16 +79,17 @@ func (s *apiKeyStore) create(name string) (apiKeyRecord, string, error) {
 	s.mu.Lock()
 	s.Keys = append(s.Keys, r)
 	s.mu.Unlock()
-		if err := s.persist.flushNowBlocking(); err != nil {
-			s.mu.Lock()
-			s.Keys = s.Keys[:len(s.Keys)-1]
-			s.mu.Unlock()
-			return apiKeyRecord{}, "", err
-		}
-		r.Hash = ""
-		r.Raw = ""
-		return r, raw, nil
+	if err := s.persist.flushNowBlocking(); err != nil {
+		s.mu.Lock()
+		s.Keys = s.Keys[:len(s.Keys)-1]
+		s.mu.Unlock()
+		return apiKeyRecord{}, "", err
 	}
+	r.Hash = ""
+	r.Raw = ""
+	return r, raw, nil
+}
+
 // list 返回全部 key 的拷贝供管理端使用。Hash 恒置空（管理端不需要）；
 // Raw 有意保留——控制台的 raw-key 复制功能需要明文。安全边界：该结果仅经
 // adminMiddleware 保护的管理端点暴露，不进入公开 API、不写日志；若未来引入
@@ -143,22 +145,27 @@ func (s *apiKeyStore) delete(id string) (bool, error) {
 	return false, nil
 }
 
-func (s *apiKeyStore) update(id, name string, revoked *bool) (bool, error) {
+func (s *apiKeyStore) update(id, name string, revoked *bool, accountIDs []string) (bool, error) {
 	s.mu.Lock()
 	found := false
 	var oldName string
 	var oldRevoked bool
+	var oldAccountIDs []string
 	for i := range s.Keys {
 		if s.Keys[i].ID != id {
 			continue
 		}
 		oldName = s.Keys[i].Name
 		oldRevoked = s.Keys[i].Revoked
+		oldAccountIDs = append([]string(nil), s.Keys[i].AccountIDs...)
 		if name != "" {
 			s.Keys[i].Name = name
 		}
 		if revoked != nil {
 			s.Keys[i].Revoked = *revoked
+		}
+		if accountIDs != nil {
+			s.Keys[i].AccountIDs = append([]string(nil), accountIDs...)
 		}
 		found = true
 		break
@@ -173,6 +180,7 @@ func (s *apiKeyStore) update(id, name string, revoked *bool) (bool, error) {
 			if s.Keys[i].ID == id {
 				s.Keys[i].Name = oldName
 				s.Keys[i].Revoked = oldRevoked
+				s.Keys[i].AccountIDs = oldAccountIDs
 				break
 			}
 		}
@@ -180,6 +188,18 @@ func (s *apiKeyStore) update(id, name string, revoked *bool) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *apiKeyStore) accountIDs(raw string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h := keyHash(raw)
+	for i := range s.Keys {
+		if s.Keys[i].Hash == h && !s.Keys[i].Revoked {
+			return append([]string(nil), s.Keys[i].AccountIDs...)
+		}
+	}
+	return nil
 }
 func (s *apiKeyStore) valid(raw string) bool {
 	s.mu.Lock()

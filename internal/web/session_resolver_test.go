@@ -135,6 +135,37 @@ func TestResolverIncrementalBoundary(t *testing.T) {
 	}
 }
 
+func TestConversationRotationBoundary(t *testing.T) {
+	tests := []struct {
+		historyLen int
+		want       bool
+	}{
+		{historyLen: 599, want: false},
+		{historyLen: 600, want: true},
+		{historyLen: 601, want: true},
+	}
+	for _, test := range tests {
+		if got := shouldRotateConversation(test.historyLen, 600); got != test.want {
+			t.Fatalf("history=%d: rotation=%v, want %v", test.historyLen, got, test.want)
+		}
+	}
+}
+
+func TestResolvedConversationRotationUsesRequestLength(t *testing.T) {
+	// Persisted resolver history is capped at 512 messages, so rotation must
+	// also consider the full request length or the default 600-message limit
+	// can never be reached through this path.
+	if !shouldRotateResolvedConversation(512, 600, 600) {
+		t.Fatal("request length at the limit must rotate even when resolver history is truncated")
+	}
+	if shouldRotateResolvedConversation(512, 599, 600) {
+		t.Fatal("request length below the limit must not rotate")
+	}
+	if !shouldRotateResolvedConversation(601, 2, 600) {
+		t.Fatal("resolver history above the limit must rotate")
+	}
+}
+
 func TestResolverEvictsAfterTTL(t *testing.T) {
 	t.Setenv("M365_SESSION_CACHE", filepath.Join(t.TempDir(), "sessions.json"))
 	sr := openSessionResolver()
@@ -204,20 +235,20 @@ func TestBindRecordsAndUpdatesAPIKeyID(t *testing.T) {
 
 	// 新建会话记录来源 key。
 	sr.Bind("", "conv-k", "acc1", "key-1", body, "", req)
-	sess, ok := sr.GetConversation("conv-k")
+	sess, ok := sr.GetConversation("", "conv-k")
 	if !ok || sess.APIKeyID != "key-1" {
 		t.Fatalf("after first bind: found=%v apiKeyID=%q, want key-1", ok, sess.APIKeyID)
 	}
 
 	// 同一云端对话续轮换 key → 更新为最近一次的 key。
 	sr.Bind("", "conv-k", "acc1", "key-2", body, "", req)
-	if sess, _ = sr.GetConversation("conv-k"); sess.APIKeyID != "key-2" {
+	if sess, _ = sr.GetConversation("", "conv-k"); sess.APIKeyID != "key-2" {
 		t.Fatalf("after rebind with key-2: apiKeyID=%q, want key-2", sess.APIKeyID)
 	}
 
 	// JWT/未知 key（空 ID）续轮不应抹掉已记录的归因。
 	sr.Bind(sess.SessionID, "conv-k", "acc1", "", body, "", req)
-	if sess, _ = sr.GetConversation("conv-k"); sess.APIKeyID != "key-2" {
+	if sess, _ = sr.GetConversation("", "conv-k"); sess.APIKeyID != "key-2" {
 		t.Fatalf("after JWT rebind: apiKeyID=%q, want key-2 kept", sess.APIKeyID)
 	}
 
@@ -226,7 +257,7 @@ func TestBindRecordsAndUpdatesAPIKeyID(t *testing.T) {
 		t.Fatal(err)
 	}
 	reloaded := openSessionResolver()
-	if sess, ok = reloaded.GetConversation("conv-k"); !ok || sess.APIKeyID != "key-2" {
+	if sess, ok = reloaded.GetConversation("", "conv-k"); !ok || sess.APIKeyID != "key-2" {
 		t.Fatalf("after reload: found=%v apiKeyID=%q, want key-2", ok, sess.APIKeyID)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -139,7 +140,7 @@ func (c *Client) Connect(ctx context.Context) error {
 func (c *Client) readSSE(body io.ReadCloser) {
 	defer body.Close()
 	defer c.setConnected(false)
-	
+
 	scanner := bufio.NewScanner(body)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -156,6 +157,14 @@ func (c *Client) readSSE(body io.ReadCloser) {
 					select {
 					case ch <- json.RawMessage(data):
 					default:
+						// Non-blocking send is correct in the per-request
+						// channel model: each pending channel has capacity 1
+						// and exactly one consumer select-waiting on it. A
+						// full channel therefore means the requester already
+						// timed out and unregistered — blocking here would
+						// stall the SSE reader for a response nobody will
+						// ever read.
+						log.Printf("[mcp] dropping late SSE response for id %d (requester gone or timed out)", *meta.ID)
 					}
 				}
 			}
@@ -248,7 +257,7 @@ func (c *Client) sendRequest(ctx context.Context, method string, params any) (in
 	c.mu.Unlock()
 
 	messageURL := fmt.Sprintf("%s/message?sessionId=%s", strings.TrimRight(strings.Split(c.serverURL, "/sse")[0], "/"), c.sessionID)
-	
+
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, messageURL, strings.NewReader(string(body)))
 	if err != nil {
 		c.mu.Lock()
@@ -286,7 +295,7 @@ func (c *Client) sendNotification(method string, params any) error {
 	body, _ := json.Marshal(req)
 
 	messageURL := fmt.Sprintf("%s/message?sessionId=%s", strings.TrimRight(strings.Split(c.serverURL, "/sse")[0], "/"), c.sessionID)
-	
+
 	httpReq, err := http.NewRequest(http.MethodPost, messageURL, strings.NewReader(string(body)))
 	if err != nil {
 		return err

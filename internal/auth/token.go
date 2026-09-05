@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"m365-copilot2api/internal/outbound"
 	"net/http"
 	"net/url"
@@ -73,7 +74,27 @@ func ExchangeCode(code, verifier, redirect string) (TokenSet, error) {
 	return requestToken(form)
 }
 
-func Refresh(refreshToken, clientID, tokenEndpoint string) (TokenSet, error) {
+func ExchangeCodeAt(code, verifier, redirect, clientID, scope, tokenEndpoint string) (TokenSet, error) {
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("grant_type", "authorization_code")
+	form.Set("code", code)
+	form.Set("redirect_uri", redirect)
+	form.Set("code_verifier", verifier)
+	form.Set("scope", scope)
+	return requestTokenTenant(form, tokenEndpoint, "Graph authorization", "", "")
+}
+
+func RefreshAt(refreshToken, clientID, scope, tokenEndpoint string) (TokenSet, error) {
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	form.Set("scope", scope)
+	return requestTokenTenant(form, tokenEndpoint, "Graph refresh", "", "")
+}
+
+func Refresh(refreshToken, clientID, tokenEndpoint, oid, tid string) (TokenSet, error) {
 	form := url.Values{}
 	if clientID == "" {
 		clientID = ClientID()
@@ -85,7 +106,7 @@ func Refresh(refreshToken, clientID, tokenEndpoint string) (TokenSet, error) {
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", refreshToken)
 	form.Set("scope", Scope())
-	return requestTokenTenant(form, tokenEndpoint, "Refresh")
+	return requestTokenTenant(form, tokenEndpoint, "Refresh", oid, tid)
 }
 
 // RefreshWithScope redeems the same account refresh token for a separately
@@ -111,15 +132,18 @@ func ROPC(username, password string) (TokenSet, error) {
 	form.Set("username", username)
 	form.Set("password", password)
 	form.Set("scope", Scope())
-	return requestTokenTenant(form, Authority()+"/organizations/oauth2/v2.0/token", "ROPC")
+	return requestTokenTenant(form, Authority()+"/organizations/oauth2/v2.0/token", "ROPC", "", "")
 }
 
-func requestTokenTenant(form url.Values, endpoint string, caller string) (TokenSet, error) {
+func requestTokenTenant(form url.Values, endpoint string, caller string, oid, tid string) (TokenSet, error) {
 	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return TokenSet{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if oid != "" && tid != "" {
+		req.Header.Set("X-AnchorMailbox", "Oid:"+oid+"@"+tid)
+	}
 	resp, err := outbound.HTTPClient().Do(req)
 	if err != nil {
 		return TokenSet{}, err
@@ -153,6 +177,17 @@ func requestTokenTenant(form url.Values, endpoint string, caller string) (TokenS
 		set.DisplayName = firstNonEmpty(claims["name"], set.Email)
 		set.HomeOID = firstNonEmpty(claims["oid"], claims["sub"])
 		set.TenantID = firstNonEmpty(claims["tid"], claims["tenant_id"])
+	}
+	if exp, ok := jwtNumericClaim(tr.AccessToken, "exp"); ok {
+		jwtExp := time.Unix(int64(exp), 0)
+		diff := set.ExpiresAt.Sub(jwtExp)
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > 60*time.Second {
+			log.Printf("[auth] ExpiresAt drift %.0fs from JWT exp; using JWT exp", diff.Seconds())
+			set.ExpiresAt = jwtExp
+		}
 	}
 	return set, nil
 }
@@ -206,6 +241,17 @@ func requestToken(form url.Values) (TokenSet, error) {
 		set.HomeOID = firstNonEmpty(claims["oid"], claims["sub"])
 		set.TenantID = firstNonEmpty(claims["tid"], claims["tenant_id"])
 	}
+	if exp, ok := jwtNumericClaim(tr.AccessToken, "exp"); ok {
+		jwtExp := time.Unix(int64(exp), 0)
+		diff := set.ExpiresAt.Sub(jwtExp)
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > 60*time.Second {
+			log.Printf("[auth] ExpiresAt drift %.0fs from JWT exp; using JWT exp", diff.Seconds())
+			set.ExpiresAt = jwtExp
+		}
+	}
 	if tr.IDToken != "" {
 		if claims, err := decodeJWTClaims(tr.IDToken); err == nil {
 			if set.Email == "" {
@@ -256,6 +302,27 @@ func decodeJWTClaims(token string) (map[string]string, error) {
 		}
 	}
 	return out, nil
+}
+
+func jwtNumericClaim(token, key string) (float64, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return 0, false
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return 0, false
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0, false
+	}
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	f, ok := v.(float64)
+	return f, ok
 }
 
 func firstNonEmpty(values ...string) string {

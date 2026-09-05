@@ -8,7 +8,10 @@ type Tool struct {
 }
 
 func clientPlugins(tools []Tool, mcpServerURL string) []any {
-	plugins := make([]any, 0, len(tools)+1)
+	plugins := make([]any, 0, len(tools)+2)
+	if mcpServerURL == "" && len(tools) == 0 {
+		plugins = append(plugins, map[string]any{"Id": "BingWebSearch", "Source": "BuiltIn"})
+	}
 	if mcpServerURL != "" {
 		plugins = append(plugins, map[string]any{
 			"Id":                "mcp-gateway",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -185,4 +186,35 @@ func sseSafeRaw(w http.ResponseWriter, f http.Flusher, payload string) error {
 		f.Flush()
 	}
 	return nil
+}
+
+// sseWriter serializes all writes to one streaming response. Keepalive
+// goroutines and the main emit loop would otherwise interleave partial
+// frames on the shared ResponseWriter (net/http writes are not goroutine-safe).
+type sseWriter struct {
+	w  http.ResponseWriter
+	f  http.Flusher
+	mu sync.Mutex
+}
+
+func newSSEWriter(w http.ResponseWriter, f http.Flusher) *sseWriter {
+	return &sseWriter{w: w, f: f}
+}
+
+func (s *sseWriter) raw(payload string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rc := http.NewResponseController(s.w)
+	_ = rc.SetWriteDeadline(time.Now().Add(30 * time.Second))
+	if _, err := fmt.Fprint(s.w, payload); err != nil {
+		return err
+	}
+	if s.f != nil {
+		s.f.Flush()
+	}
+	return nil
+}
+
+func (s *sseWriter) data(data string) error {
+	return s.raw("data: " + data + "\n\n")
 }

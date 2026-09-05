@@ -32,35 +32,35 @@ func newConversationCache() *conversationCache {
 	}
 }
 
-func (c *conversationCache) key(accountID, model string) string {
-	return accountID + "|" + model
+func (c *conversationCache) key(namespace, accountID, model string) string {
+	return namespace + "|" + accountID + "|" + model
 }
 
-func (c *conversationCache) Lookup(accountID, model string) *cachedConversation {
+func (c *conversationCache) Lookup(namespace, accountID, model string) *cachedConversation {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	entry := c.entries[c.key(accountID, model)]
+	entry := c.entries[c.key(namespace, accountID, model)]
 	if entry == nil {
 		return nil
 	}
 	if time.Since(entry.LastUsedAt) > c.maxAge {
-		delete(c.entries, c.key(accountID, model))
+		delete(c.entries, c.key(namespace, accountID, model))
 		return nil
 	}
 	return entry
 }
 
-func (c *conversationCache) Store(accountID, model string, conv *cachedConversation) {
+func (c *conversationCache) Store(namespace, accountID, model string, conv *cachedConversation) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conv.LastUsedAt = time.Now()
-	c.entries[c.key(accountID, model)] = conv
+	c.entries[c.key(namespace, accountID, model)] = conv
 }
 
-func (c *conversationCache) Invalidate(accountID, model string) {
+func (c *conversationCache) Invalidate(namespace, accountID, model string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.entries, c.key(accountID, model))
+	delete(c.entries, c.key(namespace, accountID, model))
 }
 
 func (c *conversationCache) GC() {
@@ -110,14 +110,14 @@ func extractLastUserMessage(messages []oaiMsg) string {
 	return ""
 }
 
-func (s *Server) storeConvCache(accID, model string, res chathub.Result, tone string, messages []oaiMsg, reused bool) {
+func (s *Server) storeConvCache(namespace, accID, model string, res chathub.Result, tone string, messages []oaiMsg, reused bool) {
 	if res.ConversationID == "" {
 		return
 	}
-	cached := s.convCache.Lookup(accID, model)
+	cached := s.convCache.Lookup(namespace, accID, model)
 	newHash := systemPromptHash(messages)
 	if cached != nil && cached.ConversationID == res.ConversationID && cached.SystemPrompt != newHash {
-		s.convCache.Invalidate(accID, model)
+		s.convCache.Invalidate(namespace, accID, model)
 		return
 	}
 	entry := &cachedConversation{
@@ -132,9 +132,9 @@ func (s *Server) storeConvCache(accID, model string, res chathub.Result, tone st
 	} else {
 		entry.TurnCount = 1
 	}
-	s.convCache.Store(accID, model, entry)
+	s.convCache.Store(namespace, accID, model, entry)
 }
 
-func (s *Server) invalidateConvCache(accID, model string) {
-	s.convCache.Invalidate(accID, model)
+func (s *Server) invalidateConvCache(namespace, accID, model string) {
+	s.convCache.Invalidate(namespace, accID, model)
 }

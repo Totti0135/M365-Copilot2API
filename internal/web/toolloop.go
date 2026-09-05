@@ -110,6 +110,29 @@ func callID(name, args string, index int) string {
 	return "call_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
+// dedupeToolCalls collapses tool calls that share the same name and canonical
+// arguments within a single upstream turn. The M365 Copilot upstream sometimes
+// emits the same fenced command (or native tool event) more than once in one
+// reply; without this the agent ledger counts each copy as a separate round and
+// falsely trips the stuck-loop guard (agent_ledger.go). Order is preserved and
+// the first occurrence wins so downstream call ids stay stable.
+func dedupeToolCalls(calls []detectedToolCall) []detectedToolCall {
+	if len(calls) < 2 {
+		return calls
+	}
+	seen := make(map[string]bool, len(calls))
+	out := calls[:0]
+	for _, c := range calls {
+		key := c.Name + "\x00" + canonicalToolArguments(string(c.Arguments))
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, c)
+	}
+	return out
+}
+
 func extractToolCalls(text string, tools []map[string]any, choice any) ([]detectedToolCall, bool) {
 	allowed := allowedToolNames(tools)
 	var out []detectedToolCall
@@ -124,7 +147,7 @@ func extractToolCalls(text string, tools []map[string]any, choice any) ([]detect
 			break
 		}
 		end += start
-		content := remaining[start+len("<m365-tool-call>"):end]
+		content := remaining[start+len("<m365-tool-call>") : end]
 		remaining = remaining[end+len("</m365-tool-call>"):]
 		var raw any
 		if json.Unmarshal([]byte(content), &raw) != nil {
@@ -195,6 +218,7 @@ func isImageLimitNotice(text string) bool {
 	t := strings.ToLower(text)
 	return strings.Contains(t, "无法生成更多图像") || strings.Contains(t, "unable to generate more images")
 }
+
 var sandboxHallucinationPatterns = []string{
 	"I can run that for you",
 	"I'll run that",

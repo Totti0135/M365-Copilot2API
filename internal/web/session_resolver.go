@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// sessionBinding 璁板綍涓€娆″唴瀹归敭澶嶇敤鐨勪細璇濄€侷dentity 瀛楁锛圛P/user锛変粎浣?
-// 璇婃柇鍏冩暟鎹繚鐣欙紝鍖归厤鍒ゅ畾鍙緷璧栦笂涓嬫枃鍐呭锛岃 Resolve 鐨勫唴瀹归敭閫昏緫銆?
+// sessionBinding records a reusable content-keyed conversation. Identity
+// fields are diagnostic metadata; Resolve matches only conversation content.
 type sessionBinding struct {
 	SessionID      string `json:"sessionId"`
 	ConversationID string `json:"conversationId"`
@@ -61,8 +61,8 @@ type sessionResolver struct {
 const defaultMaxSessions = 1000
 
 func openSessionResolver() *sessionResolver {
-	// 闂茬疆 2 灏忔椂鍗宠涓鸿繃鏈燂紙鐢ㄦ埛锛? 灏忔椂涓嶆椿璺冨凡缁忕畻涔咃級銆備細璇濊繃鏈熷悗
-	// 浠?sessions.json 鍓旈櫎锛屼簯绔璇濅氦缁?auto_cleanup 鎸夌浉鍚岀獥鍙ｅ洖鏀躲€?
+	// Treat a session as expired after two idle hours. Expired bindings are
+	// removed from sessions.json; cloud conversations use the same cleanup window.
 	ttl := 2 * time.Hour
 	if v := os.Getenv("M365_SESSION_TTL_MINUTES"); v != "" {
 		if d, err := time.ParseDuration(v + "m"); err == nil {
@@ -196,8 +196,8 @@ type ResolveResult struct {
 	AccountID      string
 	MatchedBy      string
 	IsNew          bool
-	// HistoryLen 鏄鐢ㄥ懡涓椂"浜戠瀵硅瘽宸插寘鍚殑娑堟伅鏉℃暟"锛?
-	// 鍗冲閲忓彂閫佺殑璧风偣涓嬫爣锛坆ody.Messages[HistoryLen:] 鍙彂鏂板閮ㄥ垎锛夈€?
+	// HistoryLen is the number of messages already present in a reused cloud
+	// conversation and therefore the start index for incremental delivery.
 	HistoryLen int
 }
 
@@ -235,8 +235,8 @@ func (sr *sessionResolver) Resolve(r *http.Request, body *oaiReq) ResolveResult 
 	tenant := tenantFromRequest(r)
 	explicitID := r.Header.Get("X-M365-Session-Id")
 
-	// 瀹㈡埛绔樉寮忔寚瀹氱殑浼氳瘽 ID 鏄渶楂樹紭鍏堢殑缁帴璇箟锛氫笉鍙備笌浠讳綍韬唤鍒ゅ畾锛?
-	// 鐢辫皟鐢ㄦ柟涓诲姩鍐冲畾瑕佺户缁摢涓簯绔璇濄€?
+	// An explicit client session ID has the highest continuation priority. The
+	// caller determines which cloud conversation should continue.
 	if explicitID != "" {
 		if sessID, ok := sr.byExplicit[explicitKey(tenant, explicitID)]; ok {
 			if sess, ok := sr.sessions[sessID]; ok && sess.Tenant == tenant {
@@ -255,9 +255,9 @@ func (sr *sessionResolver) Resolve(r *http.Request, body *oaiReq) ResolveResult 
 		}
 	}
 
-	// 鍐呭閿細鍗忚娑堟伅鍚嶅簭鍒椾弗鏍肩瓑浜庢煇涓凡璁板綍浼氳瘽鐨勫巻鍙叉椂鐩存帴澶嶇敤杩欎釜
-	// 浜戠瀵硅瘽锛屼絾鍙湪鍚屼竴 IP/UA 鎸囩汗涓嬶紝閬垮厤鐭秷鎭湪涓嶅悓鐢ㄦ埛闂翠簰绔?
-	// HistoryLen 杩斿洖璇ュ墠缂€闀垮害锛屼笂灞傛嵁姝ゅ彧鍙戦€?messages[HistoryLen:] 澧為噺銆?
+	// Reuse a cloud conversation when its recorded history is a strict prefix
+	// of the request under the same IP and user-agent fingerprint. HistoryLen
+	// identifies the incremental suffix to send.
 	ipFinger := clientIPFingerprint(r)
 	if bestID, n := sr.matchContextLocked(tenant, ipFinger, body.Messages); bestID != "" {
 		sess := sr.sessions[bestID]
@@ -274,8 +274,8 @@ func (sr *sessionResolver) Resolve(r *http.Request, body *oaiReq) ResolveResult 
 		}
 	}
 
-	// 寮辩害鏉熷厹搴曪細鍐呭涓嶆瀯鎴愪弗鏍煎墠缂€锛屼絾涓庢煇涓巻鍙查珮搴︾浉浼硷紙濡傚鎴风
-	// 鏈湴鎴柇浜嗗巻鍙诧級锛屼粛澶嶇敤璇ヤ細璇濄€傛鏃跺閲忚竟鐣屾湭鐭ワ紝涓婂眰鍙戦€佸叏閲忋€?
+	// As a weaker fallback, reuse a conversation whose history shares a strong
+	// suffix with a locally truncated request. The incremental boundary is unknown.
 	suffixID, suffixN := sr.matchSuffixLocked(tenant, ipFinger, body.Messages)
 	if suffixID != "" {
 		sess := sr.sessions[suffixID]
@@ -344,17 +344,16 @@ func suffixMatchLen(hist, msgs []oaiMsg) int {
 	return n
 }
 
-// matchContextLocked 浠庡叏閮ㄤ細璇濅腑鎵惧埌鍏?contextHistory 涓ユ牸浣滀负娑堟伅鍓嶇紑鐨?
-// 閭ｄ釜浼氳瘽锛涘彧閫夊墠缂€鏈€闀跨殑涓€涓紝閬垮厤鐭墠缂€鍦ㄤ笉鍚屼細璇濋棿浜掓挒銆傝繑鍥?
-// (sessionID, 鍖归厤鍒扮殑娑堟伅鏉℃暟)銆?
+// matchContextLocked returns the most recent conversation with the longest
+// strict history prefix, plus the number of matched messages.
 func (sr *sessionResolver) matchContextLocked(tenant, ipFinger string, messages []oaiMsg) (string, int) {
 	if len(messages) == 0 {
 		return "", 0
 	}
 	type match struct {
-		id      string
-		n       int
-		recent  time.Time
+		id     string
+		n      int
+		recent time.Time
 	}
 	best := match{}
 	for id, sess := range sr.sessions {
@@ -375,8 +374,8 @@ func (sr *sessionResolver) matchContextLocked(tenant, ipFinger string, messages 
 	return best.id, best.n
 }
 
-// contextPrefixLen 杩斿洖 hist 鏄惁涓ユ牸鏄?msgs 鐨勫墠缂€銆俬ist 涓虹┖鎴栦笉鏄墠缂€
-// 鏃惰繑鍥?0锛涘懡涓椂杩斿洖 len(hist)锛屽嵆澧為噺鍙戦€佽捣鐐广€?
+// contextPrefixLen returns len(hist) when hist is a strict prefix of msgs and
+// ends on an atom boundary. It returns zero otherwise.
 func contextPrefixLen(hist, msgs []oaiMsg) int {
 	if len(hist) == 0 || len(msgs) < len(hist) {
 		return 0
@@ -386,11 +385,25 @@ func contextPrefixLen(hist, msgs []oaiMsg) int {
 			return 0
 		}
 	}
+	atoms := buildAtoms(msgs)
+	boundary := false
+	for _, a := range atoms {
+		if a.End == len(hist) {
+			boundary = true
+			break
+		}
+		if a.End > len(hist) {
+			break
+		}
+	}
+	if !boundary {
+		return 0
+	}
 	return len(hist)
 }
 
-// messagesEqual 鍒ゅ畾涓ゆ潯娑堟伅鍦ㄤ細璇濋敭鎰忎箟涓婄瓑浠凤細role 涓庢枃鏈唴瀹逛竴鑷淬€?
-// 蹇界暐 tool_calls 鐨?ID 缁嗚妭锛堜細璇濋敭鍙叧蹇冨唴瀹瑰浣曡妯″瀷娑堝寲锛夈€?
+// messagesEqual compares role, content, and tool call semantics while ignoring
+// tool call IDs, which clients may regenerate when replaying the same call.
 func messagesEqual(a, b oaiMsg) bool {
 	if a.Role != b.Role {
 		return false
@@ -530,14 +543,22 @@ func (sr *sessionResolver) lookupForTenantLocked(tenant, id string) (sessionBind
 	return sessionBinding{}, false
 }
 
-func (sr *sessionResolver) GetConversation(conversationID string) (sessionBinding, bool) {
+// GetConversation resolves a cloud conversation binding. A keyed caller
+// (tenant = key hash) is scoped to its own bindings; the console path
+// (no API key, empty tenant) falls back to an ID-only match so the admin
+// view can open any recorded conversation.
+func (sr *sessionResolver) GetConversation(tenant, conversationID string) (sessionBinding, bool) {
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 	for _, session := range sr.sessions {
-		if session.ConversationID == conversationID {
-			session.ContextHistory = cloneMessages(session.ContextHistory)
-			return session, true
+		if session.ConversationID != conversationID {
+			continue
 		}
+		if tenant != "" && session.Tenant != tenant {
+			continue
+		}
+		session.ContextHistory = cloneMessages(session.ContextHistory)
+		return session, true
 	}
 	return sessionBinding{}, false
 }
@@ -592,17 +613,40 @@ func (sr *sessionResolver) UnbindByConversation(conversationID string) int {
 }
 
 func cloneMessages(msgs []oaiMsg) []oaiMsg {
-	if len(msgs) > 512 {
-		msgs = msgs[len(msgs)-512:]
+	if len(msgs) <= 512 {
+		out := make([]oaiMsg, len(msgs))
+		copy(out, msgs)
+		return out
 	}
-	out := make([]oaiMsg, len(msgs))
-	copy(out, msgs)
+	atoms := buildAtoms(msgs)
+	if len(atoms) == 0 {
+		msgs = msgs[len(msgs)-512:]
+		out := make([]oaiMsg, len(msgs))
+		copy(out, msgs)
+		return out
+	}
+	count := 0
+	startIdx := len(msgs)
+	for i := len(atoms) - 1; i >= 0; i-- {
+		c := atoms[i].End - atoms[i].Start
+		if count+c > 512 {
+			break
+		}
+		count += c
+		startIdx = atoms[i].Start
+	}
+	if count == 0 {
+		startIdx = atoms[len(atoms)-1].Start
+	}
+	sliced := msgs[startIdx:]
+	out := make([]oaiMsg, len(sliced))
+	copy(out, sliced)
 	for i := range out {
-		if len(msgs[i].ToolCalls) > 0 {
-			tc := make([]map[string]any, len(msgs[i].ToolCalls))
-			for j := range msgs[i].ToolCalls {
-				m := make(map[string]any, len(msgs[i].ToolCalls[j]))
-				for k, v := range msgs[i].ToolCalls[j] {
+		if len(sliced[i].ToolCalls) > 0 {
+			tc := make([]map[string]any, len(sliced[i].ToolCalls))
+			for j := range sliced[i].ToolCalls {
+				m := make(map[string]any, len(sliced[i].ToolCalls[j]))
+				for k, v := range sliced[i].ToolCalls[j] {
 					m[k] = v
 				}
 				tc[j] = m
