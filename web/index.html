@@ -1243,7 +1243,9 @@ function accountBalanceDetails(x){
     const v=remaining[k];
     const low=v!==undefined&&v<=10;
     const zero=v===0;
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1px solid ${zero?'var(--danger)':low?'#d97706':'var(--border)'};background:${zero?'#fef2f2':low?'#fffbeb':'var(--card)'};font-size:11px;line-height:1" title="${esc(k)}">${esc(QUOTA_LABELS[k]||k)}<span style="color:${zero?'var(--danger)':low?'#92400e':'var(--muted)'}">${v}</span></span>`;
+    const labelColor=zero?'#991b1b':low?'#92400e':'inherit';
+    const valueColor=zero?'#991b1b':low?'#92400e':'var(--muted)';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1px solid ${zero?'var(--danger)':low?'#d97706':'var(--border)'};background:${zero?'#fef2f2':low?'#fffbeb':'var(--card)'};font-size:11px;line-height:1" title="${esc(k)}"><span style="color:${labelColor}">${esc(QUOTA_LABELS[k]||k)}</span><span style="color:${valueColor}">${v}</span></span>`;
   }).join('');
   const llmZero=llm===0, llmLow=llm>0&&llm<=10;
   const main=llm===undefined
