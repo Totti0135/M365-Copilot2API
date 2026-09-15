@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>M365 Copilot2API</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/lucide@latest"></script><style>
-:root{color-scheme:light dark;--bg:#f5f5f7;--surface:rgba(255,255,255,0.72);--surface-solid:#fff;--surface-border:rgba(255,255,255,0.5);--line:rgba(0,0,0,0.06);--line-strong:rgba(0,0,0,0.1);--text:#1d1d1f;--muted:#86868b;--accent:#0071e3;--accent-hover:#0077ed;--primary:#1d1d1f;--primary-hover:#000;--green:#34c759;--red:#ff3b30;--orange:#ff9f0a;--purple:#bf5af2;--sidebar-w:240px;--shadow-sm:0 2px 8px rgba(0,0,0,0.04);--shadow:0 8px 32px rgba(0,0,0,0.06);--shadow-lg:0 16px 48px rgba(0,0,0,0.1);--radius:14px;--radius-sm:10px;--ease-out:cubic-bezier(0.23,1,0.32,1);--ease-in-out:cubic-bezier(0.77,0,0.175,1);--ease-spring:cubic-bezier(0.32,0.72,0,1)}
-@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--surface:rgba(44,44,46,0.75);--surface-solid:#2c2c2e;--surface-border:rgba(255,255,255,0.06);--line:rgba(255,255,255,0.06);--line-strong:rgba(255,255,255,0.12);--text:#f5f5f7;--muted:#98989d;--accent:#0a84ff;--accent-hover:#409cff;--primary:#f5f5f7;--primary-hover:#fff;--green:#30d158;--red:#ff453a;--orange:#ff9f0a;--purple:#bf5af2;--shadow-sm:0 2px 8px rgba(0,0,0,0.15);--shadow:0 8px 32px rgba(0,0,0,0.2);--shadow-lg:0 16px 48px rgba(0,0,0,0.3)}}
+:root{color-scheme:light dark;--bg:#f5f5f7;--surface:rgba(255,255,255,0.72);--surface-solid:#fff;--surface-border:rgba(255,255,255,0.5);--line:rgba(0,0,0,0.06);--line-strong:rgba(0,0,0,0.1);--text:#1d1d1f;--muted:#86868b;--accent:#0071e3;--accent-hover:#0077ed;--primary:#1d1d1f;--primary-hover:#000;--green:#34c759;--red:#ff3b30;--orange:#ff9f0a;--purple:#bf5af2;--sidebar-w:240px;--shadow-sm:0 2px 8px rgba(0,0,0,0.04);--shadow:0 8px 32px rgba(0,0,0,0.06);--shadow-lg:0 16px 48px rgba(0,0,0,0.1);--radius:14px;--radius-sm:10px;--ease-out:cubic-bezier(0.23,1,0.32,1);--ease-in-out:cubic-bezier(0.77,0,0.175,1);--ease-spring:cubic-bezier(0.32,0.72,0,1);--danger:#ff3b30;--warning:#d97706;--border:rgba(0,0,0,0.1);--card:#ffffff}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--surface:rgba(44,44,46,0.75);--surface-solid:#2c2c2e;--surface-border:rgba(255,255,255,0.06);--line:rgba(255,255,255,0.06);--line-strong:rgba(255,255,255,0.12);--text:#f5f5f7;--muted:#98989d;--accent:#0a84ff;--accent-hover:#409cff;--primary:#f5f5f7;--primary-hover:#fff;--green:#30d158;--red:#ff453a;--orange:#ff9f0a;--purple:#bf5af2;--shadow-sm:0 2px 8px rgba(0,0,0,0.15);--shadow:0 8px 32px rgba(0,0,0,0.2);--shadow-lg:0 16px 48px rgba(0,0,0,0.3);--danger:#ff453a;--warning:#d97706;--border:rgba(255,255,255,0.12);--card:#2c2c2e}}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{max-width:100%}
 body{background:var(--bg);color:var(--text);font-family:"Inter","SF Pro Display","Noto Sans SC",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:14px;line-height:1.4706;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background .3s ease,color .3s ease}
@@ -571,7 +571,7 @@ if (response.output_text) {
               </div>
             </div>
           </div>
-          <table class="table"><thead><tr><th>Account</th><th>Calls</th><th>Status</th><th>Updated</th><th>Scheduling</th><th>Proxy</th><th>Actions</th></tr></thead><tbody id="accountRows"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody></table>
+          <table class="table"><thead><tr><th>Account</th><th>Calls</th><th>Balance</th><th>Status</th><th>Updated</th><th>Scheduling</th><th>Proxy</th><th>Actions</th></tr></thead><tbody id="accountRows"><tr><td colspan="8" class="empty">Loading...</td></tr></tbody></table>
         </div>
       </section>
 
@@ -833,6 +833,7 @@ const localeText={
   'Tokens': {'zh-CN':'Tokens','zh-TW':'Tokens','ja':'トークン','ko':'토큰','es':'Tokens','fr':'Tokens','de':'Tokens','pt-BR':'Tokens','ru':'Токены','ar':'الرموز'},
   'Status': {'zh-CN':'状态','zh-TW':'狀態','ja':'ステータス','ko':'상태','es':'Estado','fr':'Statut','de':'Status','pt-BR':'Status','ru':'Статус','ar':'الحالة'},
   'Calls': {'zh-CN':'调用次数','zh-TW':'呼叫次數','ja':'呼び出し回数','ko':'호출 횟수','es':'Llamadas','fr':'Appels','de':'Aufrufe','pt-BR':'Chamadas','ru':'Вызовы','ar':'الاستدعاءات'},
+  'Balance': {'zh-CN':'余额','zh-TW':'餘額','ja':'残高','ko':'잔액','es':'Saldo','fr':'Solde','de':'Guthaben','pt-BR':'Saldo','ru':'Баланс','ar':'الرصيد'},
   'Scheduling': {'zh-CN':'调度','zh-TW':'調度','ja':'スケジュール','ko':'스케줄링','es':'Programación','fr':'Planification','de':'Planung','pt-BR':'Agendamento','ru':'Планирование','ar':'الجدولة'},
   'Enabled': {'zh-CN':'已启用','zh-TW':'已啟用','ja':'有効','ko':'활성화됨','es':'Habilitado','fr':'Activé','de':'Aktiviert','pt-BR':'Ativado','ru':'Включено','ar':'مفعّل'},
   'Loading...': {'zh-CN':'加载中...','zh-TW':'載入中...','ja':'読み込み中...','ko':'로딩 중...','es':'Cargando...','fr':'Chargement...','de':'Wird geladen...','pt-BR':'Carregando...','ru':'Загрузка...','ar':'جارٍ التحميل...'},
@@ -977,6 +978,10 @@ function translateDynamic(value,locale){
   if(locale==='zh'||locale.startsWith('zh')){
     let m=value.match(/^Called (\d+) times$/);if(m)return locale==='zh-TW'?'已呼叫'+m[1]+'次':'已调用'+m[1]+'次';
     m=value.match(/^Limited after (\d+) calls$/);if(m)return locale==='zh-TW'?'呼叫'+m[1]+'次限流':'调用'+m[1]+'次限流';
+    m=value.match(/^(\d+)m ago$/);if(m)return m[1]+' 分钟前';
+    m=value.match(/^(\d+)h ago$/);if(m)return m[1]+' 小时前';
+    m=value.match(/^(\d+)d ago$/);if(m)return m[1]+' 天前';
+    m=value.match(/^just now$/);if(m)return '刚刚';
     m=value.match(/^(\d+) requests today$/);if(m)return '今日 '+m[1]+' 次请求';
     m=value.match(/^([\d.,]+[KM]?) tokens today$/);if(m)return '今日 '+m[1]+' Token';
     m=value.match(/^(\d+) requests$/);if(m)return m[1]+' 次请求';
@@ -993,6 +998,10 @@ function translateDynamic(value,locale){
     m=value.match(/^已呼叫(\d+)次$/);if(m)return 'Called '+m[1]+' times';
     m=value.match(/^调用(\d+)次限流$/);if(m)return 'Limited after '+m[1]+' calls';
     m=value.match(/^呼叫(\d+)次限流$/);if(m)return 'Limited after '+m[1]+' calls';
+    m=value.match(/^(\d+) 分钟前$/);if(m)return m[1]+'m ago';
+    m=value.match(/^(\d+) 小时前$/);if(m)return m[1]+'h ago';
+    m=value.match(/^(\d+) 天前$/);if(m)return m[1]+'d ago';
+    m=value.match(/^刚刚$/);if(m)return 'just now';
     m=value.match(/^今日 (\d+) 次请求$/);if(m)return m[1]+' requests today';
     m=value.match(/^今日 ([\d.,]+[KM]?) Token$/);if(m)return m[1]+' tokens today';
     m=value.match(/^(\d+) 次请求$/);if(m)return m[1]+' requests';
@@ -1214,18 +1223,32 @@ async function loadRecentRequests(){
 
 let _accountsCache=[],_accountFilter='all';
 function setAccountFilter(f){_accountFilter=f;document.querySelectorAll('#accountFilter button').forEach(b=>b.classList.toggle('active',b.dataset.f===f));renderAccounts();}
-function accountQuotaDetails(x){
+function timeAgoStr(iso){
+  const t=new Date(iso);
+  if(!iso||isNaN(t)||t.getFullYear()<2000) return '';
+  const s=Math.max(0,Date.now()-t.getTime())/1000;
+  if(s<60) return 'just now';
+  const m=Math.floor(s/60); if(m<60) return m+'m ago';
+  const h=Math.floor(m/60); if(h<24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function accountBalanceDetails(x){
   const remaining=x.remainingAllowance||{};
   const unavailable=x.status==='cooldown'||x.rateLimited||x.meterHasAccess===false||x.remainingAllowanceStale;
-  const preferred=['LLMOnly','ImageGeneration','ClaudeOpusQuery','ClaudeOpusQueryDaily','ArtifactGeneration','WXPAgentMode'];
-  let order=[...preferred.filter(k=>k in remaining),...Object.keys(remaining).filter(k=>!preferred.includes(k)).sort()];
-  order=order.filter(k=> remaining[k]!==0 || ['LLMOnly','ImageGeneration','ClaudeOpusQuery'].includes(k));
+  const llm=remaining.LLMOnly;
+  const preferred=['ImageGeneration','ClaudeOpusQuery','ClaudeOpusQueryDaily','ClaudeOpusQuery75','ArtifactGeneration','WXPAgentMode','DeepResearch','ReasoningModelTurnUsage','CostQuota'];
+  let order=[...preferred.filter(k=>k in remaining),...Object.keys(remaining).filter(k=>k!=='LLMOnly'&&!preferred.includes(k)).sort()];
+  order=order.filter(k=> remaining[k]!==0 || ['ImageGeneration','ClaudeOpusQuery'].includes(k));
   const badges=order.map(k=>{
     const v=remaining[k];
     const low=v!==undefined&&v<=10;
     const zero=v===0;
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1px solid ${zero?'var(--danger)':low?'#d97706':'var(--border)'};background:${zero?'#fef2f2':low?'#fffbeb':'var(--card)'};font-size:11px;line-height:1"><b>${esc(k)}</b><span style="color:${zero?'var(--danger)':low?'#92400e':'var(--muted)'}">${v}</span></span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:999px;border:1px solid ${zero?'var(--danger)':low?'#d97706':'var(--border)'};background:${zero?'#fef2f2':low?'#fffbeb':'var(--card)'};font-size:11px;line-height:1" title="${esc(k)}">${esc(QUOTA_LABELS[k]||k)}<span style="color:${zero?'var(--danger)':low?'#92400e':'var(--muted)'}">${v}</span></span>`;
   }).join('');
+  const llmZero=llm===0, llmLow=llm>0&&llm<=10;
+  const main=llm===undefined
+    ?`<span style="font-size:11px;color:var(--muted)">—</span>`
+    :`<div style="font-size:18px;font-weight:700;letter-spacing:-.01em;color:${llmZero?'var(--danger)':llmLow?'#b45309':'inherit'}">${llm}<span style="font-size:11px;color:var(--muted);font-weight:500;margin-left:4px">${esc(QUOTA_LABELS.LLMOnly)}</span></div>`;
   const throttling=x.throttling||{};
   const used=throttling.numUserMessagesInConversation;
   const max=throttling.maxNumUserMessagesInConversation;
@@ -1234,14 +1257,16 @@ function accountQuotaDetails(x){
     const pct=Math.min(100,Math.round(used/max*100));
     const barColor=pct>=90?'var(--danger)':pct>=70?'#d97706':'var(--primary)';
     conv=`<div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="font-size:11px;color:var(--muted)">对话 ${used} / ${max}</span><span style="flex:1;max-width:120px;height:6px;background:var(--border);border-radius:999px;overflow:hidden"><span style="display:block;height:100%;width:${pct}%;background:${barColor}"></span></span><span style="font-size:11px;color:var(--muted)">${pct}%</span></div>`;
-  } else if (x.meterError||badges) {
+  } else if (x.meterError||badges||llm!==undefined) {
     conv=`<div style="font-size:11px;color:var(--muted);margin-top:6px">对话水位暂无数据（等待下一次请求回写）</div>`;
   }
   const reason=x.status==='cooldown'?'当前冷却中':x.rateLimited?'当前限流':x.meterHasAccess===false?'当前无访问权限':x.remainingAllowanceStale?'当前快照已过期':'';
   const meter=reason||x.meterError?`<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:11px">${esc(reason||x.meterError)}${reason&&x.meterError?' · '+esc(x.meterError):''}</div>`:'';
-  const snapshot=badges?`<div style="font-size:11px;color:var(--muted);margin-top:6px">${unavailable?'上游历史快照':'上游额度快照'}${x.remainingAllowanceUpdatedAt?' · '+new Date(x.remainingAllowanceUpdatedAt).toLocaleString():''}</div>`:'';
-  if(!badges&&!meter&&!conv) return `<div style="font-size:11px;color:var(--muted);margin-top:6px">额度数据等待下一次成功请求后展示</div>`;
-  return `<div style="margin-top:6px">${meter}${snapshot}${conv}${badges?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;opacity:${unavailable?'.65':'1'}">${badges}</div>`:''}</div>`;
+  const ago=timeAgoStr(x.remainingAllowanceUpdatedAt);
+  const hasSnapshot=llm!==undefined||!!badges;
+  const snapshot=hasSnapshot?`<div style="font-size:11px;color:var(--muted);margin-top:6px${x.remainingAllowanceStale?';color:#b45309':''}">${unavailable?'上游历史快照':'上游额度快照'}${x.remainingAllowanceStale?' ⚠':''}${ago?` · <span title="${esc(new Date(x.remainingAllowanceUpdatedAt).toLocaleString())}">${ago}</span>`:''}</div>`:'';
+  if(llm===undefined&&!badges&&!meter&&!conv) return `<div style="font-size:11px;color:var(--muted)">额度数据等待下一次成功请求后展示</div>`;
+  return `<div>${main}${meter}${snapshot}${conv}${badges?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;opacity:${unavailable?'.65':'1'}">${badges}</div>`:''}</div>`;
 }
 function renderAccounts(){
   const q=($('accountSearch').value||'').trim().toLowerCase();
@@ -1254,14 +1279,15 @@ function renderAccounts(){
   });
   const rows=$('accountRows');
   rows.replaceChildren();
-  if(!list.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent='No matching accounts';tr.append(td);rows.append(tr);return;}
+  if(!list.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='empty';td.textContent='No matching accounts';tr.append(td);rows.append(tr);return;}
   list.forEach(x=>{
     const cooldown=x.cooldownUntil?`<div style="font-size:11px;color:var(--muted);margin-top:3px"><span>Cooldown until</span> ${new Date(x.cooldownUntil).toLocaleString()}</div>`:'';
     const status=x.status==='cooldown'?`<div><span class="status cooldown"><i></i>Cooldown</span>${cooldown}</div>`:x.status==='online'?'<span class="status online"><i></i>Online</span>':'<span class="status offline"><i></i>Offline</span>';
-    const calls=(x.rateLimited?`<span style="color:var(--warning);font-weight:600">⚠ Limited after ${x.callCount||0} calls</span>`:`Called ${x.callCount||0} times`)+accountQuotaDetails(x);
+    const calls=x.rateLimited?`<span style="color:var(--warning);font-weight:600">⚠ Limited after ${x.callCount||0} calls</span>`:`Called ${x.callCount||0} times`;
+    const balance=accountBalanceDetails(x);
     const scheduleEnabled=x.scheduleEnabled!==false;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><div class="account-cell"><div class="avatar"></div><div><b></b><div class="account-email" style="font-size:11px;color:var(--muted)"></div></div></div></td><td style="font-size:12px;white-space:nowrap">${calls}<div style="margin-top:6px"><button class="btn-sm btn" data-account-action="probe">刷新额度</button></div></td><td>${status}</td><td style="font-size:12px;color:var(--muted)">${x.updatedAt?new Date(x.updatedAt).toLocaleString():'-'}</td><td><button class="btn-sm btn${scheduleEnabled?'':' danger'}" data-account-action="schedule">${scheduleEnabled?'Enabled':'Disabled'}</button></td><td><span class="account-proxy" style="font-size:11px;word-break:break-all"></span> <button class="btn-sm btn" style="margin-top:2px" data-account-action="proxy">Bind</button></td><td><button class="btn-sm btn danger" data-account-action="delete">Delete</button></td>`;
+    tr.innerHTML=`<td><div class="account-cell"><div class="avatar"></div><div><b></b><div class="account-email" style="font-size:11px;color:var(--muted)"></div></div></div></td><td style="font-size:12px;white-space:nowrap">${calls}</td><td style="font-size:12px;white-space:normal;min-width:220px">${balance}<div style="margin-top:6px"><button class="btn-sm btn" data-account-action="probe">刷新额度</button></div></td><td>${status}</td><td style="font-size:12px;color:var(--muted)">${x.updatedAt?new Date(x.updatedAt).toLocaleString():'-'}</td><td><button class="btn-sm btn${scheduleEnabled?'':' danger'}" data-account-action="schedule">${scheduleEnabled?'Enabled':'Disabled'}</button></td><td><span class="account-proxy" style="font-size:11px;word-break:break-all"></span> <button class="btn-sm btn" style="margin-top:2px" data-account-action="proxy">Bind</button></td><td><button class="btn-sm btn danger" data-account-action="delete">Delete</button></td>`;
     tr.querySelector('.avatar').textContent=(x.displayName||x.email||'M')[0];
     tr.querySelector('b').textContent=x.displayName||x.email||'';
     tr.querySelector('.account-email').textContent=x.email||'';
@@ -1306,7 +1332,7 @@ async function loadAccounts(){
       dashboard.querySelectorAll('.quota-warn').forEach(e=>e.remove());
       dashboard.prepend(warn);
     }
-    }catch(e){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='empty';td.textContent=e.message;tr.append(td);$('accountRows').replaceChildren(tr);}
+    }catch(e){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.className='empty';td.textContent=e.message;tr.append(td);$('accountRows').replaceChildren(tr);}
 }
 function startAccountsPolling(){
   if(_accountsTimer) return;
