@@ -1249,7 +1249,7 @@ function accountBalanceDetails(x){
   const main=llm===undefined
     ?`<span style="font-size:11px;color:var(--muted)">—</span>`
     :`<div style="font-size:18px;font-weight:700;letter-spacing:-.01em;color:${llmZero?'var(--danger)':llmLow?'#b45309':'inherit'}">${llm}<span style="font-size:11px;color:var(--muted);font-weight:500;margin-left:4px">${esc(QUOTA_LABELS.LLMOnly)}</span></div>`;
-  const throttling=x.throttling||{};
+  const throttling=(x.throttling&&x.throttling.Raw)||x.throttling||{};
   const used=throttling.numUserMessagesInConversation;
   const max=throttling.maxNumUserMessagesInConversation;
   let conv='';

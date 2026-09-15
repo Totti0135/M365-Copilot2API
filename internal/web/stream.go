@@ -219,6 +219,18 @@ func remainingAllowances(throttling any) map[string]int {
 	if throttling == nil {
 		return remaining
 	}
+	// The metering map lives inside the raw throttling frame; callers hand us
+	// the chathub.ThrottlingInfo wrapper, so unwrap before parsing. Marshaling
+	// the wrapper directly nests metering under "Raw" and extracts nothing.
+	switch t := throttling.(type) {
+	case *chathub.ThrottlingInfo:
+		if t == nil {
+			return remaining
+		}
+		throttling = t.Raw
+	case chathub.ThrottlingInfo:
+		throttling = t.Raw
+	}
 	b, err := json.Marshal(throttling)
 	if err != nil {
 		return remaining
