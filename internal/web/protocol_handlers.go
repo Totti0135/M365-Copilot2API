@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,6 +14,7 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -551,6 +553,287 @@ func responsesOutputHasContent(src map[string]any) bool {
 	return strings.TrimSpace(text) != ""
 }
 
+// anthropicToolStreamBlock tracks one tool_use content block being assembled
+// from streamed OpenAI tool_call fragments.
+type anthropicToolStreamBlock struct {
+	blockIndex int
+	id, name   string
+	args       strings.Builder
+}
+
+// anthropicStreamTranslator incrementally converts inner OpenAI chat SSE data
+// lines into Anthropic Messages SSE events. It is the streaming counterpart of
+// writeAnthropicResult and is kept separate from the pipe plumbing so the
+// frame translation can be unit-tested with canned chunks.
+type anthropicStreamTranslator struct {
+	emit       func(name string, v any) bool
+	nextBlock  int
+	openBlock  string // "", "thinking", or "text"; tool blocks close at finalize
+	calls      map[int]*anthropicToolStreamBlock
+	callOrder  []*anthropicToolStreamBlock
+	text       strings.Builder
+	finish     string
+	failed     bool
+	clientGone bool
+}
+
+func newAnthropicStreamTranslator(emit func(name string, v any) bool) *anthropicStreamTranslator {
+	return &anthropicStreamTranslator{emit: emit, calls: map[int]*anthropicToolStreamBlock{}}
+}
+
+func (t *anthropicStreamTranslator) closeOpenBlock() {
+	if t.openBlock != "" {
+		t.emit("content_block_stop", map[string]any{"type": "content_block_stop", "index": t.nextBlock - 1})
+		t.openBlock = ""
+	}
+}
+
+// scan consumes inner SSE data lines until the stream ends, an inner error
+// chunk appears, the client disconnects, or ctx is cancelled.
+func (t *anthropicStreamTranslator) scan(scanner *bufio.Scanner, ctx context.Context) {
+	for !t.clientGone && scanner.Scan() {
+		if ctx.Err() != nil {
+			return
+		}
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+			continue
+		}
+		var chunk map[string]any
+		if json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &chunk) != nil {
+			continue
+		}
+		if _, ok := chunk["error"].(map[string]any); ok {
+			t.failed = true
+			return
+		}
+		choices, _ := chunk["choices"].([]any)
+		if len(choices) == 0 {
+			continue
+		}
+		choice, _ := choices[0].(map[string]any)
+		if fr, ok := choice["finish_reason"].(string); ok && fr != "" {
+			t.finish = fr
+		}
+		delta, _ := choice["delta"].(map[string]any)
+		t.handleDelta(delta)
+		if t.clientGone {
+			return
+		}
+	}
+}
+
+func (t *anthropicStreamTranslator) handleDelta(delta map[string]any) {
+	if reasoning, ok := delta["reasoning_content"].(string); ok && reasoning != "" {
+		if t.openBlock != "thinking" {
+			t.closeOpenBlock()
+			t.openBlock = "thinking"
+			t.nextBlock++
+			if !t.emit("content_block_start", map[string]any{"type": "content_block_start", "index": t.nextBlock - 1, "content_block": map[string]any{"type": "thinking", "thinking": "", "signature": ""}}) {
+				t.clientGone = true
+				return
+			}
+		}
+		if !t.emit("content_block_delta", map[string]any{"type": "content_block_delta", "index": t.nextBlock - 1, "delta": map[string]any{"type": "thinking_delta", "thinking": reasoning}}) {
+			t.clientGone = true
+			return
+		}
+	}
+	if content, ok := delta["content"].(string); ok && content != "" {
+		t.text.WriteString(content)
+		if t.openBlock != "text" {
+			t.closeOpenBlock()
+			t.openBlock = "text"
+			t.nextBlock++
+			if !t.emit("content_block_start", map[string]any{"type": "content_block_start", "index": t.nextBlock - 1, "content_block": map[string]any{"type": "text", "text": ""}}) {
+				t.clientGone = true
+				return
+			}
+		}
+		if !t.emit("content_block_delta", map[string]any{"type": "content_block_delta", "index": t.nextBlock - 1, "delta": map[string]any{"type": "text_delta", "text": content}}) {
+			t.clientGone = true
+			return
+		}
+	}
+	if rawCalls, ok := delta["tool_calls"].([]any); ok {
+		for _, raw := range rawCalls {
+			if t.handleToolCall(raw) {
+				return
+			}
+		}
+	}
+}
+
+// handleToolCall processes one tool_calls array entry; it returns true when
+// the client is gone and translation must stop.
+func (t *anthropicStreamTranslator) handleToolCall(raw any) bool {
+	tc, ok := raw.(map[string]any)
+	if !ok {
+		return false
+	}
+	idx := 0
+	if f, ok := tc["index"].(float64); ok {
+		idx = int(f)
+	}
+	fn, _ := tc["function"].(map[string]any)
+	st := t.calls[idx]
+	if st == nil {
+		t.closeOpenBlock()
+		st = &anthropicToolStreamBlock{blockIndex: t.nextBlock}
+		t.nextBlock++
+		if v, ok := tc["id"].(string); ok {
+			st.id = v
+		}
+		if v, ok := fn["name"].(string); ok {
+			st.name = v
+		}
+		t.calls[idx] = st
+		t.callOrder = append(t.callOrder, st)
+		if !t.emit("content_block_start", map[string]any{"type": "content_block_start", "index": st.blockIndex, "content_block": map[string]any{"type": "tool_use", "id": st.id, "name": st.name, "input": map[string]any{}}}) {
+			t.clientGone = true
+			return true
+		}
+	} else {
+		if v, ok := tc["id"].(string); ok && v != "" {
+			st.id = v
+		}
+		if v, ok := fn["name"].(string); ok && v != "" {
+			st.name += v
+		}
+	}
+	if v, ok := fn["arguments"].(string); ok && v != "" {
+		st.args.WriteString(v)
+		if !t.emit("content_block_delta", map[string]any{"type": "content_block_delta", "index": st.blockIndex, "delta": map[string]any{"type": "input_json_delta", "partial_json": v}}) {
+			t.clientGone = true
+			return true
+		}
+	}
+	return false
+}
+
+// outputText is everything the model produced, used for the usage estimate.
+func (t *anthropicStreamTranslator) outputText() string {
+	out := t.text.String()
+	for _, st := range t.callOrder {
+		out += st.name + st.args.String()
+	}
+	return out
+}
+
+// stopReason maps the OpenAI finish_reason onto the Anthropic stop_reason.
+func (t *anthropicStreamTranslator) stopReason() string {
+	if len(t.callOrder) > 0 {
+		return "tool_use"
+	}
+	if t.finish == "length" {
+		return "max_tokens"
+	}
+	return "end_turn"
+}
+
+// closeAllBlocks ends the open text/thinking block and every tool_use block
+// in creation order, ready for message_delta/message_stop.
+func (t *anthropicStreamTranslator) closeAllBlocks() {
+	t.closeOpenBlock()
+	for _, st := range t.callOrder {
+		t.emit("content_block_stop", map[string]any{"type": "content_block_stop", "index": st.blockIndex})
+	}
+}
+
+// streamAnthropicAdapter translates the internal OpenAI chat SSE into
+// Anthropic Messages SSE incrementally, mirroring streamResponsesAdapter.
+// The previous path (runOpenAIAdapter + writeAnthropicResult) buffered the
+// whole completion before replaying it as SSE: a proxy in front of the
+// gateway (nginx defaults to a 60s read timeout) drops a connection that
+// stays silent while ChatHub generates a long answer, so real incremental
+// deltas plus ping keepalives are required.
+func (s *Server) streamAnthropicAdapter(w http.ResponseWriter, r *http.Request, o oaiReq, model string) responsesUsageEstimate {
+	o.Stream = true
+	b, _ := json.Marshal(o)
+	r2 := r.Clone(r.Context())
+	r2.Method = http.MethodPost
+	r2.Body = io.NopCloser(bytes.NewReader(b))
+	r2.ContentLength = int64(len(b))
+	pr, pw := io.Pipe()
+	irw := &pipeResponseWriter{h: make(http.Header), w: pw}
+	innerDone := make(chan struct{})
+	var innerPanic any
+	go func() {
+		defer func() {
+			if p := recover(); p != nil {
+				innerPanic = p
+				log.Printf("[anthropic] inner goroutine panic: %v", p)
+			}
+			_ = pw.Close()
+			close(innerDone)
+		}()
+		s.openaiChat(irw, r2)
+	}()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	flusher, _ := w.(http.Flusher)
+	// The ping goroutine and the translator below both emit frames; writes to
+	// a ResponseWriter are not goroutine-safe, so every emit is serialized.
+	var emitMu sync.Mutex
+	emit := func(name string, v any) bool {
+		emitMu.Lock()
+		defer emitMu.Unlock()
+		return sseWriteFrame(w, flusher, name, v) == nil
+	}
+
+	id := "msg_" + uuid.NewString()
+	estimate := estimateResponsesUsage(model, o.Messages, o.Tools, o.ToolChoice, "")
+	emit("message_start", map[string]any{"type": "message_start", "message": map[string]any{
+		"id": id, "type": "message", "role": "assistant", "model": model,
+		"content": []any{}, "stop_reason": nil, "stop_sequence": nil,
+		"usage": map[string]any{"input_tokens": estimate.Values["input_tokens"], "output_tokens": 0},
+	}})
+	pingDone := make(chan struct{})
+	defer close(pingDone)
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pingDone:
+				return
+			case <-r.Context().Done():
+				return
+			case <-ticker.C:
+				if !emit("ping", map[string]any{"type": "ping"}) {
+					return
+				}
+			}
+		}
+	}()
+
+	tr := newAnthropicStreamTranslator(emit)
+	scanner := bufio.NewScanner(pr)
+	scanner.Buffer(make([]byte, 4096), 10<<20)
+	tr.scan(scanner, r.Context())
+	<-innerDone
+	if tr.clientGone || r.Context().Err() != nil {
+		return estimate
+	}
+	if tr.failed || innerPanic != nil || scanner.Err() != nil || irw.status >= http.StatusBadRequest {
+		// message_start already went out, so the failure is reported as an
+		// Anthropic error event inside the stream rather than an HTTP status.
+		status := irw.status
+		if status == 0 {
+			status = http.StatusBadGateway
+		}
+		emit("error", map[string]any{"type": "error", "error": map[string]any{"type": "api_error", "message": fmt.Sprintf("inner chat request failed (status %d)", status)}})
+		return estimate
+	}
+	tr.closeAllBlocks()
+	estimate = estimateResponsesUsage(model, o.Messages, o.Tools, o.ToolChoice, tr.outputText())
+	emit("message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": tr.stopReason(), "stop_sequence": nil}, "usage": map[string]any{"output_tokens": estimate.Values["output_tokens"]}})
+	emit("message_stop", map[string]any{"type": "message_stop"})
+	return estimate
+}
+
 func (s *Server) anthropicMessages(w http.ResponseWriter, r *http.Request) {
 	startedAt := time.Now()
 	if r.Method != http.MethodPost {
@@ -566,6 +849,26 @@ func (s *Server) anthropicMessages(w http.ResponseWriter, r *http.Request) {
 	o, err := body.openAI()
 	if err != nil {
 		writeAnthropicError(w, 400, "invalid_request_error", err.Error())
+		return
+	}
+	if body.Stream {
+		model := firstNonEmpty(body.Model, "m365-copilot")
+		estimate := s.streamAnthropicAdapter(w, r, o, model)
+		if s.usage != nil {
+			apiKeyID, apiKeyPrefix := s.resolveAPIKey(r)
+			s.usage.record(UsageRecord{
+				Time:         time.Now(),
+				APIKeyID:     apiKeyID,
+				APIKeyPrefix: apiKeyPrefix,
+				Model:        model,
+				Endpoint:     "/v1/messages",
+				Stream:       true,
+				InputTokens:  safeInt64(estimate.Values["input_tokens"]),
+				OutputTokens: safeInt64(estimate.Values["output_tokens"]),
+				DurationMs:   time.Since(startedAt).Milliseconds(),
+				Status:       200,
+			})
+		}
 		return
 	}
 	out, raw, status, err := s.runOpenAIAdapter(r, o)

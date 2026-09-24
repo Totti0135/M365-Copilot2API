@@ -78,7 +78,12 @@ func writeAnthropicResult(w http.ResponseWriter, model string, stream bool, src 
 			blocks = append(blocks, map[string]any{"type": "text", "text": ""})
 		}
 	}
-	_ = finish
+	// finish_reason → stop_reason mapping matching the streaming adapter in
+	// protocol_handlers.go (streamAnthropicAdapter): tool_calls already set
+	// tool_use above; length maps to max_tokens, anything else stays end_turn.
+	if stop != "tool_use" && finish == "length" {
+		stop = "max_tokens"
+	}
 	inputTokens := int64(0)
 	outputTokens := int64(0)
 	if u, ok := src["usage"].(map[string]any); ok {
