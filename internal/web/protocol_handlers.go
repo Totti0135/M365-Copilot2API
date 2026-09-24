@@ -162,7 +162,20 @@ func (s *Server) streamResponsesAdapter(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+		if line == "data: [DONE]" {
+			continue
+		}
+		// Pass inner SSE comment lines (": connected", ": keepalive", the
+		// trailing ": m365-metrics") straight through: clients ignore comment
+		// lines per the SSE spec, and forwarding the inner 15s keepalives keeps
+		// a proxy (nginx defaults to a 60s read timeout) from dropping the
+		// connection while ChatHub generates before the first output delta or
+		// during a long reasoning phase, which produces no outward events.
+		if strings.HasPrefix(line, ":") {
+			_ = sseSafeRaw(w, flusher, line+"\n\n")
+			continue
+		}
+		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
 		var chunk map[string]any
