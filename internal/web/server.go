@@ -2149,11 +2149,7 @@ func (s *Server) openaiChat(w http.ResponseWriter, r *http.Request) {
 		var streamedTools []detectedToolCall
 		first := true
 		identityFilter := newPublicIdentityStreamFilter(model)
-		emitText := func(part string) error {
-			if part == "" {
-				return nil
-			}
-			part = identityFilter.Push(part)
+		emitChunk := func(part string) error {
 			if part == "" {
 				return nil
 			}
@@ -2176,6 +2172,9 @@ func (s *Server) openaiChat(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			return nil
+		}
+		emitText := func(part string) error {
+			return emitChunk(identityFilter.Push(part))
 		}
 		res, err := s.chatWithAccountEvents(ctx, acc.ID, account, answerReq, func(ev chathub.StreamEvent) error {
 			if ev.Kind == "tool" && ev.ToolName != "" && len(ev.Arguments) > 0 {
@@ -2291,6 +2290,7 @@ func (s *Server) openaiChat(w http.ResponseWriter, r *http.Request) {
 				s.accountPool.MarkImageLimited(acc.ID)
 			}
 		}
+		sawDeltas := text.Len() > 0
 		if text.Len() == 0 && strings.TrimSpace(res.Text) != "" {
 			text.WriteString(res.Text)
 		}
@@ -2348,6 +2348,23 @@ func (s *Server) openaiChat(w http.ResponseWriter, r *http.Request) {
 			s.bindConversation(acc, &body, r, res, answerPrompt, startedAt)
 			s.storeConvCache(convCacheNamespace, acc.ID, convCacheModel, res, tone, body.Messages, convReused)
 			return
+		}
+		// No tool call was detected, so whatever streamEmitText withheld for
+		// fence detection is ordinary answer text. Flush the withheld tail (or
+		// the whole answer when no delta ever arrived and the text was
+		// backfilled from the final result) before the finish chunk; without
+		// this, short answers that fit the fence-detection buffer never
+		// reached the client at all. Push+Flush keeps an active identity
+		// filter from swallowing the tail.
+		remainder := pending.String()
+		pending.Reset()
+		if !sawDeltas {
+			remainder = text.String()
+		}
+		if tail := identityFilter.Push(remainder) + identityFilter.Flush(); tail != "" {
+			if err := emitChunk(tail); err != nil {
+				return
+			}
 		}
 		finishChunk := map[string]any{"id": id, "object": "chat.completion.chunk", "created": time.Now().Unix(), "model": model, "choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "stop"}}}
 		if res.Throttling != nil {

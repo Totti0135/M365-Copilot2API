@@ -1,8 +1,8 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -77,9 +77,9 @@ func TestResponseHistoryBucketsIsolateTenantAndSession(t *testing.T) {
 
 func TestResponsesCustomExecToOpenAI(t *testing.T) {
 	r := responsesRequest{Model: "m", Input: "inspect", Tools: []map[string]any{{"type": "custom", "name": "exec", "description": "run a command", "format": map[string]any{"type": "grammar"}}}}
-	_, err := r.openAI()
-	if err == nil || !strings.Contains(err.Error(), "unsupported_parameter: tools") {
-		t.Fatalf("err=%v, want unsupported custom tool", err)
+	o, err := r.openAI()
+	if err != nil || len(o.Tools) != 0 {
+		t.Fatalf("openAI()=%+v, err=%v, want unsupported custom tool skipped", o, err)
 	}
 }
 
@@ -88,9 +88,13 @@ func TestResponsesCustomExecIsExclusiveTool(t *testing.T) {
 		{"type": "custom", "name": "exec", "description": "local execution"},
 		{"type": "function", "name": "m365_search", "description": "native search"},
 	}}
-	_, err := r.openAI()
-	if err == nil || !strings.Contains(err.Error(), "unsupported_parameter: tools") {
-		t.Fatalf("err=%v, want unsupported custom tool", err)
+	o, err := r.openAI()
+	if err != nil || len(o.Tools) != 1 {
+		t.Fatalf("openAI()=%+v, err=%v, want custom skipped and function kept", o, err)
+	}
+	var f map[string]any
+	if err := json.Unmarshal(o.Tools[0].Function, &f); err != nil || f["name"] != "m365_search" {
+		t.Fatalf("tools=%#v, want m365_search", o.Tools)
 	}
 }
 
@@ -100,9 +104,9 @@ func TestResponsesInstructionsAndCustomExecPolicyAreSystemMessages(t *testing.T)
 		Input:        "inspect the repository",
 		Tools:        []map[string]any{{"type": "custom", "name": "exec", "description": "run a command"}},
 	}
-	_, err := r.openAI()
-	if err == nil || !strings.Contains(err.Error(), "unsupported_parameter: tools") {
-		t.Fatalf("err=%v, want unsupported custom tool", err)
+	o, err := r.openAI()
+	if err != nil || len(o.Messages) != 2 || o.Messages[0].Role != "system" || len(o.Tools) != 0 {
+		t.Fatalf("openAI()=%+v, err=%v, want instructions as system message and tool skipped", o, err)
 	}
 }
 
@@ -143,9 +147,13 @@ func TestResponsesAdditionalToolsToOpenAI(t *testing.T) {
 		},
 		map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "run ls"}}},
 	}}
-	_, err := r.openAI()
-	if err == nil || !strings.Contains(err.Error(), "unsupported_parameter: tools") {
-		t.Fatalf("err=%v, want unsupported custom tool", err)
+	o, err := r.openAI()
+	if err != nil || len(o.Tools) != 1 {
+		t.Fatalf("openAI()=%+v, err=%v, want custom skipped and wait kept", o, err)
+	}
+	var f map[string]any
+	if err := json.Unmarshal(o.Tools[0].Function, &f); err != nil || f["name"] != "wait" {
+		t.Fatalf("tools=%#v, want wait", o.Tools)
 	}
 }
 
@@ -166,6 +174,25 @@ func TestResponsesAdditionalToolsNoInputTools(t *testing.T) {
 	}
 	if len(o.Tools) != 2 {
 		t.Fatalf("tools=%#v, want wait + request_user_input", o.Tools)
+	}
+}
+
+func TestResponsesNamespaceToolsAreFlattened(t *testing.T) {
+	r := responsesRequest{Model: "gpt-5.6-sol", Input: "run the browser", Tools: []map[string]any{
+		{"type": "function", "name": "exec_command", "description": "run", "parameters": map[string]any{"type": "object"}},
+		{"type": "web_search", "external_web_access": true},
+		{"type": "namespace", "name": "mcp__playwright", "description": "browser", "tools": []any{
+			map[string]any{"type": "function", "name": "browser_navigate", "description": "navigate", "parameters": map[string]any{"type": "object"}},
+			map[string]any{"type": "custom", "name": "ignored", "description": "not a function"},
+		}},
+	}}
+	o, err := r.openAI()
+	if err != nil || len(o.Tools) != 2 {
+		t.Fatalf("openAI()=%+v, err=%v, want exec_command + flattened namespace tool", o, err)
+	}
+	var f map[string]any
+	if err := json.Unmarshal(o.Tools[1].Function, &f); err != nil || f["name"] != "mcp__playwright__browser_navigate" {
+		t.Fatalf("tools=%#v, want mcp__playwright__browser_navigate", o.Tools)
 	}
 }
 

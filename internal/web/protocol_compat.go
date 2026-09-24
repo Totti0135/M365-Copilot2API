@@ -9,6 +9,11 @@ import (
 )
 
 // responsesRequest is the OpenAI Responses API request subset supported by the gateway.
+//
+// Parameters the gateway cannot honor (text verbosity, service_tier,
+// context_management) are accepted and silently ignored: rejecting them broke
+// clients whose model catalogs advertise them — Codex sends text.verbosity on
+// every request once the catalog declares support_verbosity.
 type responsesRequest struct {
 	Model              string           `json:"model"`
 	AccountID          string           `json:"accountId,omitempty"`
@@ -27,22 +32,10 @@ type responsesRequest struct {
 	TopP               *float64         `json:"top_p,omitempty"`
 	MaxOutputTokens    *int             `json:"max_output_tokens,omitempty"`
 	Include            []string         `json:"include,omitempty"`
-	Text               map[string]any   `json:"text,omitempty"`
-	ServiceTier        string           `json:"service_tier,omitempty"`
-	ContextManagement  any              `json:"context_management,omitempty"`
 }
 
 func (r responsesRequest) openAI() (oaiReq, error) {
 	o := oaiReq{Model: r.Model, AccountID: r.AccountID, Stream: r.Stream, ToolChoice: r.ToolChoice, ParallelToolCalls: r.ParallelToolCalls, Reasoning: r.Reasoning, User: r.User}
-	if len(r.Text) != 0 {
-		return o, fmt.Errorf("unsupported_parameter: text")
-	}
-	if r.ServiceTier != "" {
-		return o, fmt.Errorf("unsupported_parameter: service_tier")
-	}
-	if r.ContextManagement != nil {
-		return o, fmt.Errorf("unsupported_parameter: context_management")
-	}
 	if r.Temperature != nil {
 		o.Temperature = r.Temperature
 	}
@@ -144,17 +137,43 @@ func (r responsesRequest) openAI() (oaiReq, error) {
 	if len(extraTools) > 0 {
 		r.Tools = append(extraTools, r.Tools...)
 	}
+	appendFunction := func(name, description, parameters any) {
+		b, _ := json.Marshal(map[string]any{"name": name, "description": description, "parameters": parameters})
+		o.Tools = append(o.Tools, chathub.Tool{Type: "function", Function: b})
+	}
 	for _, t := range r.Tools {
 		typ, _ := t["type"].(string)
-		name, _ := t["name"].(string)
-		f := map[string]any{"name": t["name"], "description": t["description"], "parameters": t["parameters"]}
-		if typ == "custom" && name == "exec" {
-			return o, fmt.Errorf("unsupported_parameter: tools")
-		} else if typ != "function" {
-			return o, fmt.Errorf("unsupported_parameter: tools")
+		switch typ {
+		case "function":
+			appendFunction(t["name"], t["description"], t["parameters"])
+		case "namespace":
+			// ChatGPT-backend namespace tools (MCP servers, multi-agent) wrap
+			// plain function declarations. ChatHub has no namespace concept, so
+			// flatten them under the legacy namespace__tool naming that clients
+			// route by call name.
+			ns, _ := t["name"].(string)
+			nested, _ := t["tools"].([]any)
+			if ns == "" {
+				continue
+			}
+			for _, rn := range nested {
+				nt, ok := rn.(map[string]any)
+				if !ok || nt["type"] != "function" {
+					continue
+				}
+				nestedName, _ := nt["name"].(string)
+				if nestedName == "" {
+					continue
+				}
+				appendFunction(ns+"__"+nestedName, nt["description"], nt["parameters"])
+			}
+		default:
+			// web_search, custom (exec), and other ChatGPT-backend-only tool
+			// types have no ChatHub equivalent; skip them so the remaining
+			// declared tools still reach the model instead of failing the
+			// whole request.
+			continue
 		}
-		b, _ := json.Marshal(f)
-		o.Tools = append(o.Tools, chathub.Tool{Type: typ, Function: b})
 	}
 	return o, nil
 }
